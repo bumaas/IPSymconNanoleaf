@@ -159,12 +159,13 @@ class NanoleafDiscovery extends IPSModule
         $ssdp_ids = IPS_GetInstanceListByModuleID('{FFFFA648-B296-E785-96ED-065F7CEE6F29}');
         $ssdp_id = $ssdp_ids[0];
         $devices = YC_SearchDevices($ssdp_id, $st);
+        /*
         $devices[]=['ST' => 'nanoleaf_aurora:light'
                     , 'Location' => 'http://192.168.0.43:16021'
                     , 'Fields' => ['S: uuid:18bc1a09-63f1-4777-9d97-3a040d1b09a6', 'NL-DEVICEID: 4F:0C:05:CD:28:28', 'NL-DEVICENAME: Light Panels 54:c3:ad']
                     , 'USN' => 'uuid:18bc1a09-63f1-4777-9d97-3a040d1b09a6'
                     ];
-
+        */
         $nanoleaf_response = [];
         $i = 0;
         foreach($devices as $device)
