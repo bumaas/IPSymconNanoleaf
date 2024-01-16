@@ -1,12 +1,12 @@
 {
 	"id": "{DD72D758-DABE-4169-85D4-48331875A507}",
-	"author": "Fonzo",
+	"author": "Fonzo/Maas",
 	"name": "Nanoleaf",
 	"url": "nanoleaf.me",
 	"compatibility": {
 		"version": "5.3"
 	},
-	"version": "0.8",
+	"version": "0.9",
 	"build": 1,
-	"date": 0
+	"date": 1705424294
 }

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 class Nanoleaf extends IPSModule
 {
+    private const PROP_NAME            = 'name';
+    private const PROP_HOST            = 'host';
+    private const PROP_PORT            = 'port';
     public function Create()
     {
         //Never delete this line!
@@ -11,10 +14,10 @@ class Nanoleaf extends IPSModule
 
         //These lines are parsed on Symcon Startup or Instance creation
         //You cannot use variables here. Just static values.
-        $this->RegisterPropertyString('name', '');
+        $this->RegisterPropertyString(self::PROP_NAME, '');
         $this->RegisterPropertyString('deviceid', '');
-        $this->RegisterPropertyString('host', '');
-        $this->RegisterPropertyString('port', '');
+        $this->RegisterPropertyString(self::PROP_HOST, '');
+        $this->RegisterPropertyString(self::PROP_PORT, '');
         $this->RegisterPropertyString('uuid', '');
         $this->RegisterAttributeString('serialNo', '');
         $this->RegisterAttributeString('firmwareVersion', '');
@@ -41,33 +44,33 @@ class Nanoleaf extends IPSModule
 
     protected function ValidateConfiguration()
     {
+        $this->RegisterVariableBoolean('State', $this->Translate('state'), '~Switch', 1);
+        $this->EnableAction('State');
+        $this->RegisterVariableInteger('color', $this->Translate('color'), '~HexColor', 2); // Color Hex, integer
+        $this->EnableAction('color');
+        $this->RegisterProfileInteger('Nanoleaf.Hue', 'Light', '', '', 0, 359, 1, 0);
+        $this->RegisterVariableInteger('hue', $this->Translate('hue'), 'Nanoleaf.Hue', 3); // Hue (0-359), integer
+        $this->EnableAction('hue');
+        $this->RegisterVariableInteger('saturation', $this->Translate('sat'), '~Intensity.100', 4); // Saturation (0-100)
+        $this->EnableAction('saturation');
+        $this->RegisterVariableInteger('Brightness', $this->Translate('brightness'), '~Intensity.100', 5); // Brightness (0-100)
+        $this->EnableAction('Brightness');
+
+        $this->RegisterProfileInteger('Nanoleaf.Colortemperature', 'Light', '', '', 1200, 6500, 100, 0);
+        $this->RegisterVariableInteger('colortemperature', $this->Translate('ct'), 'Nanoleaf.Colortemperature', 6); // "max" : 6500, "min" : 1200
+        $this->EnableAction('colortemperature');
+        $effectass = $this->GetEffectArray();
+        $this->RegisterProfileIntegerAss('Nanoleaf.Effect'.$this->InstanceID, 'Light', '', '', 1, 8, 0, 0, $effectass);
+        $this->RegisterVariableInteger('effect', $this->Translate('effect'), 'Nanoleaf.Effect'.$this->InstanceID, 7);
+        $this->EnableAction('effect');
+        $this->SetValue('effect', 1);
+
         $token = $this->ReadAttributeString('Token');
-        if ($token != '') {
-            $this->RegisterVariableBoolean('State', $this->Translate('state'), '~Switch', 1);
-            $this->EnableAction('State');
-            $this->RegisterVariableInteger('color', $this->Translate('color'), '~HexColor', 2); // Color Hex, integer
-            $this->EnableAction('color');
-            $this->RegisterProfileInteger('Nanoleaf.Hue', 'Light', '', '', 0, 359, 1, 0);
-            $this->RegisterVariableInteger('hue', $this->Translate('hue'), 'Nanoleaf.Hue', 3); // Hue (0-359), integer
-            $this->EnableAction('hue');
-            $this->RegisterVariableInteger('saturation', $this->Translate('sat'), '~Intensity.100', 4); // Saturation (0-100)
-            $this->EnableAction('saturation');
-            $this->RegisterVariableInteger('Brightness', $this->Translate('brightness'), '~Intensity.100', 5); // Brightness (0-100)
-            $this->EnableAction('Brightness');
-
-            $this->RegisterProfileInteger('Nanoleaf.Colortemperature', 'Light', '', '', 1200, 6500, 100, 0);
-            $this->RegisterVariableInteger('colortemperature', $this->Translate('ct'), 'Nanoleaf.Colortemperature', 6); // "max" : 6500, "min" : 1200
-            $this->EnableAction('colortemperature');
-            $effectass = $this->GetEffectArray();
-            $this->RegisterProfileIntegerAss('Nanoleaf.Effect'.$this->InstanceID, 'Light', '', '', 1, 8, 0, 0, $effectass);
-            $this->RegisterVariableInteger('effect', $this->Translate('effect'), 'Nanoleaf.Effect'.$this->InstanceID, 7);
-            $this->EnableAction('effect');
-            $this->SetValue('effect', 1);
+        if ($token !== '') {
             $this->SetUpdateIntervall();
+            // Status Aktiv
+            $this->SetStatus(IS_ACTIVE);
         }
-
-        // Status Aktiv
-        $this->SetStatus(102);
     }
 
     public function MessageSink($TimeStamp, $SenderID, $Message, $Data)
@@ -93,18 +96,16 @@ class Nanoleaf extends IPSModule
     public function DeleteUser(string $token)
     {
         $payload = ['command' => 'DeleteUser', 'commandvalue' => $token];
-        $result  = $this->SendCommand($payload);
-
-        return $result;
+        return $this->SendCommand($payload);
     }
 
-    protected function SetUpdateIntervall()
+    private function SetUpdateIntervall(): void
     {
         $interval = ($this->ReadPropertyInteger('UpdateInterval')) * 1000; // interval ms
         $this->SetTimerInterval('NanoleafTimerUpdate', $interval);
     }
 
-    public function UpdateEffectProfile()
+    public function UpdateEffectProfile(): array
     {
         $effectass = $this->GetEffectArray();
         if (IPS_VariableProfileExists('Nanoleaf.Effect'.$this->InstanceID)) {
@@ -115,7 +116,7 @@ class Nanoleaf extends IPSModule
         return $effectass;
     }
 
-    protected function GetEffectArray()
+    private function GetEffectArray(): array
     {
         $effectass = [
             [1, 'Color Burst', 'Light', -1],
@@ -126,10 +127,14 @@ class Nanoleaf extends IPSModule
             [6, 'Northern Lights', 'Light', -1],
             [7, 'Romantic', 'Light', -1],
             [8, 'Snowfall', 'Light', -1], ];
-        $host      = $this->ReadPropertyString('host');
-        if (!$host == '') {
+        $host      = $this->ReadPropertyString(self::PROP_HOST);
+        if ($host !== '') {
             $effectlist = $this->ListEffect();
-            $list       = json_decode($effectlist);
+            if ($effectlist){
+                $list       = json_decode($effectlist, true);
+            } else {
+                $list       = [];
+            }
             $effectass  = [];
             foreach ($list as $key => $effect) {
                 $position    = $key + 1;
@@ -177,9 +182,9 @@ class Nanoleaf extends IPSModule
                 'colormode'    => $colormode];
 
             return $allinfo;
-        } else {
-            return false; // could not get Info, Token not set
         }
+
+        return false; // could not get Info, Token not set
     }
 
     public function Authorization()
@@ -187,8 +192,8 @@ class Nanoleaf extends IPSModule
         /* A user is authorized to access the OpenAPI if they can demonstrate physical access of the Aurora. This is achieved by:
         1. Holding the on-off button down for 5-7 seconds until the LED starts flashing in a pattern
         2. Sending a POST request to the authorization endpoint */
-        $host    = $this->ReadPropertyString('host');
-        $port    = $this->ReadPropertyString('port');
+        $host    = $this->ReadPropertyString(self::PROP_HOST);
+        $port    = $this->ReadPropertyString(self::PROP_PORT);
         $url     = 'http://' . $host . ':' . $port . '/api/v1/new';
         $ch      = curl_init($url);
         $options = [
@@ -203,16 +208,16 @@ class Nanoleaf extends IPSModule
             echo $this->Translate('Could not get token');
 
             return false;
-        } else {
-            $token = json_decode($token_response)->auth_token;
-            $this->SendDebug('Splitter Received Token:', $token, 0);
-            $this->WriteAttributeString('Token', $token);
-            IPS_Sleep(1000);
-            $this->ValidateConfiguration();
-            $this->GetInfo();
-
-            return $token;
         }
+
+        $token = json_decode($token_response)->auth_token;
+        $this->SendDebug('Splitter Received Token:', $token, 0);
+        $this->WriteAttributeString('Token', $token);
+        IPS_Sleep(1000);
+        $this->ValidateConfiguration();
+        $this->GetInfo();
+
+        return $token;
     }
 
     protected function SendCommand($payload)
@@ -223,90 +228,90 @@ class Nanoleaf extends IPSModule
             $commandvalue = $payload['commandvalue'];
         }
 
-        $host  = $this->ReadPropertyString('host');
+        $host  = $this->ReadPropertyString(self::PROP_HOST);
         $token = $this->ReadAttributeString('Token');
         if ($token == '') {
             return false;
         }
-        $port        = $this->ReadPropertyString('port');
+        $port        = $this->ReadPropertyString(self::PROP_PORT);
         $url         = 'http://' . $host . ':' . $port . '/api/v1/' . $token . '/';
         $postfields  = '';
         $requesttype = 'GET';
-        if ($command == 'On') {
-            $url         = $url . 'state';
+        if ($command === 'On') {
+            $url         .= 'state';
             $postfields  = '{"on" : {"value":true}}';
             $requesttype = 'PUT';
-        } elseif ($command == 'Off') {
-            $url         = $url . 'state';
+        } elseif ($command === 'Off') {
+            $url         .= 'state';
             $postfields  = '{"on" : {"value":false}}';
             $requesttype = 'PUT';
-        } elseif ($command == 'GetState') {
-            $url         = $url . 'state/on';
+        } elseif ($command === 'GetState') {
+            $url         .= 'state/on';
             $requesttype = 'GET';
-        } elseif ($command == 'SetBrightness') {
-            $url         = $url . 'state';
+        } elseif ($command === 'SetBrightness') {
+            $url         .= 'state';
             $postfields  = '{"brightness" : {"value":' . $commandvalue . '}}';
             $requesttype = 'PUT';
-        } elseif ($command == 'GetBrightness') {
-            $url         = $url . 'state/brightness';
+        } elseif ($command === 'GetBrightness') {
+            $url         .= 'state/brightness';
             $requesttype = 'GET';
-        } elseif ($command == 'SetHue') {
-            $url         = $url . 'state';
+        } elseif ($command === 'SetHue') {
+            $url         .= 'state';
             $postfields  = '{"hue" : {"value":' . $commandvalue . '}}';
             $requesttype = 'PUT';
-        } elseif ($command == 'GetHue') {
-            $url         = $url . 'state/hue';
+        } elseif ($command === 'GetHue') {
+            $url         .= 'state/hue';
             $requesttype = 'GET';
-        } elseif ($command == 'SetSaturation') {
-            $url         = $url . 'state';
+        } elseif ($command === 'SetSaturation') {
+            $url         .= 'state';
             $postfields  = '{"sat" : {"value":' . $commandvalue . '}}';
             $requesttype = 'PUT';
-        } elseif ($command == 'GetSaturation') {
-            $url         = $url . 'state/sat';
+        } elseif ($command === 'GetSaturation') {
+            $url         .= 'state/sat';
             $requesttype = 'GET';
-        } elseif ($command == 'SetColortemperature') {
-            $url         = $url . 'state';
+        } elseif ($command === 'SetColortemperature') {
+            $url         .= 'state';
             $postfields  = '{"ct" : {"value":' . $commandvalue . '}}';
             $requesttype = 'PUT';
-        } elseif ($command == 'GetColortemperature') {
-            $url         = $url . 'state/ct';
+        } elseif ($command === 'GetColortemperature') {
+            $url         .= 'state/ct';
             $requesttype = 'GET';
-        } elseif ($command == 'ColorMode') {
-            $url         = $url . 'state/colorMode';
+        } elseif ($command === 'ColorMode') {
+            $url         .= 'state/colorMode';
             $requesttype = 'GET';
-        } elseif ($command == 'SelectEffect') {
-            $url         = $url . 'effects';
+        } elseif ($command === 'SelectEffect') {
+            $url         .= 'effects';
             $postfields  = '{"select":"' . $commandvalue . '"}';
             $requesttype = 'PUT';
-        } elseif ($command == 'GetEffect') {
-            $url         = $url . 'effects/select';
+        } elseif ($command === 'GetEffect') {
+            $url         .= 'effects/select';
             $requesttype = 'GET';
-        } elseif ($command == 'List') {
-            $url         = $url . 'effects/effectsList';
+        } elseif ($command === 'List') {
+            $url         .= 'effects/effectsList';
             $requesttype = 'GET';
-        } elseif ($command == 'Random') {
-            $url         = $url . 'effects';
+        } elseif ($command === 'Random') {
+            $url         .= 'effects';
             $result      = json_decode(Sys_GetURLContent($url . 'effects/effectsList'), true);
             $postfields  = '{"select":"' . $result[array_rand($result)] . '"}';
             $requesttype = 'PUT';
-        } elseif ($command == 'GetAllInfo') {
+        } elseif ($command === 'GetAllInfo') {
             $requesttype = 'GET';
-        } elseif ($command == 'DeleteUser') {
+        } elseif ($command === 'DeleteUser') {
             $requesttype = 'DELETE';
             $url         = 'http://' . $host . ':' . $port . '/api/v1/' . $commandvalue;
-        } elseif ($command == 'GetGlobalOrientation') {
+        } elseif ($command === 'GetGlobalOrientation') {
             $requesttype = 'GET';
-            $url         = $url . 'panelLayout/globalOrientation';
-        } elseif ($command == 'SetGlobalOrientation') {
+            $url         .= 'panelLayout/globalOrientation';
+        } elseif ($command === 'SetGlobalOrientation') {
             $requesttype = 'PUT';
             $postfields  = '{"globalOrientation" : {"value":' . $commandvalue . '}}';
-            $url         = $url . 'panelLayout';
-        } elseif ($command == 'Layout') {
+            $url         .= 'panelLayout';
+        } elseif ($command === 'Layout') {
             $requesttype = 'GET';
-            $url         = $url . 'panelLayout/layout';
-        } elseif ($command == 'Identify') {
+            $url         .= 'panelLayout/layout';
+        } elseif ($command === 'Identify') {
             $requesttype = 'PUT';
-            $url         = $url . 'identify';
+            $url         .= 'identify';
             $postfields  = '';
         }
         $ch      = curl_init($url);
@@ -315,7 +320,7 @@ class Nanoleaf extends IPSModule
             CURLOPT_CUSTOMREQUEST  => $requesttype,
             CURLOPT_HTTPHEADER     => ['Content-type: application/json'], ];
         curl_setopt_array($ch, $options);
-        if ($requesttype == 'PUT' || $requesttype == 'POST') {
+        if ($requesttype === 'PUT' || $requesttype === 'POST') {
             curl_setopt($ch, CURLOPT_POSTFIELDS, $postfields);
         }
         $result = curl_exec($ch);
@@ -384,19 +389,15 @@ class Nanoleaf extends IPSModule
         $hue        = GetValue($this->GetIDForIdent('hue'));
         $saturation = GetValue($this->GetIDForIdent('saturation'));
         $brightness = GetValue($this->GetIDForIdent('Brightness'));
-        $hsb        = ['hue' => $hue, 'saturation' => $saturation, 'brightness' => $brightness];
-
-        return $hsb;
+        return ['hue' => $hue, 'saturation' => $saturation, 'brightness' => $brightness];
     }
 
     protected function GetColor()
     {
-        $color = $this->GetIDForIdent('color');
-
-        return $color;
+        return $this->GetIDForIdent('color');
     }
 
-    protected function HEX2HSV($hex)
+    private function HEX2HSV($hex): array
     {
         $r = substr($hex, 0, 2);
         $g = substr($hex, 2, 2);
@@ -418,50 +419,50 @@ class Nanoleaf extends IPSModule
     protected function RGB2HSV($r, $g, $b)
     {
         if (!($r >= 0 && $r <= 255)) {
-            throw new Exception("h property must be between 0 and 255, but is: ${r}");
+            throw new Exception("h property must be between 0 and 255, but is: $r");
         }
         if (!($g >= 0 && $g <= 255)) {
-            throw new Exception("s property must be between 0 and 255, but is: ${g}");
+            throw new Exception("s property must be between 0 and 255, but is: $g");
         }
         if (!($b >= 0 && $b <= 255)) {
-            throw new Exception("v property must be between 0 and 255, but is: ${b}");
+            throw new Exception("v property must be between 0 and 255, but is: $b");
         }
-        $r      = ($r / 255);
-        $g      = ($g / 255);
-        $b      = ($b / 255);
+        $r /= 255;
+        $g /= 255;
+        $b /= 255;
         $maxRGB = max($r, $g, $b);
         $minRGB = min($r, $g, $b);
         $chroma = $maxRGB - $minRGB;
         $v      = $maxRGB * 100; // $v 0 - 100
-        if ($chroma == 0) {
+        if ($chroma === 0) {
             return ['h' => 0, 's' => 0, 'v' => intval($v)];
         }
         $s = ($chroma / $maxRGB) * 100; // $s 0 - 100
-        if ($r == $minRGB) {
+        if ($r === $minRGB) {
             $h = 3 - (($g - $b) / $chroma);
-        } elseif ($b == $minRGB) {
+        } elseif ($b === $minRGB) {
             $h = 1 - (($r - $g) / $chroma);
         } else {// $g == $minRGB
             $h = 5 - (($b - $r) / $chroma);
         }
         $h = $h / 6 * 360; // 0 - 359
-        return ['h' => intval(round($h)), 's' => intval(round($s)), 'v' => intval(round($v))];
+        return ['h' => (int) round($h), 's' => (int) round($s), 'v' => (int) round($v)];
     }
 
-    protected function HSV2RGB($h, $s, $v)
+    protected function HSV2RGB($h, $s, $v): array
     {
         if (!($h >= 0 && $h <= 359)) {
-            throw new Exception("h property must be between 0 and 359, but is: ${h}");
+            throw new Exception("h property must be between 0 and 359, but is: $h");
         }
         if (!($s >= 0 && $s <= 100)) {
-            throw new Exception("s property must be between 0 and 100, but is: ${s}");
+            throw new Exception("s property must be between 0 and 100, but is: $s");
         }
         if (!($v >= 0 && $v <= 100)) {
-            throw new Exception("v property must be between 0 and 100, but is: ${v}");
+            throw new Exception("v property must be between 0 and 100, but is: $v");
         }
         $h = $h * 6 / 360;
-        $s = $s / 100;
-        $v = $v / 100;
+        $s /= 100;
+        $v /= 100;
         $i = floor($h);
         $f = $h - $i;
         $m = $v * (1 - $s);
@@ -585,9 +586,7 @@ class Nanoleaf extends IPSModule
     public function ColorMode()
     {
         $payload = ['command' => 'ColorMode'];
-        $result  = $this->SendCommand($payload);
-
-        return $result;
+        return $this->SendCommand($payload);
     }
 
     public function SelectEffect(string $effect) // "Color Burst","Flames","Forest","Inner Peace","Nemo","Northern Lights","Romantic","Snowfall"
@@ -615,9 +614,7 @@ class Nanoleaf extends IPSModule
                 $effectstring = $effectposition['Name'];
             }
         }
-        $result = $this->SelectEffect($effectstring);
-
-        return $result;
+        return $this->SelectEffect($effectstring);
     }
 
     protected function GetCurrentEffectProfile()
@@ -630,17 +627,13 @@ class Nanoleaf extends IPSModule
     public function GetEffect()
     {
         $payload = ['command' => 'GetEffect'];
-        $effect  = $this->SendCommand($payload);
-
-        return $effect;
+        return $this->SendCommand($payload);
     }
 
     public function ListEffect()
     {
         $payload = ['command' => 'List'];
-        $result  = $this->SendCommand($payload);
-
-        return $result;
+        return $this->SendCommand($payload);
     }
 
     public function GetInfo()
@@ -663,33 +656,25 @@ class Nanoleaf extends IPSModule
     {
         $payload                 = ['command' => 'GetGlobalOrientation'];
         $global_orientation_json = $this->SendCommand($payload);
-        $global_orientation      = json_decode($global_orientation_json)->value;
-
-        return $global_orientation;
+        return json_decode($global_orientation_json)->value;
     }
 
     public function SetGlobalOrientation(int $orientation)
     {
         $payload = ['command' => 'SetGlobalOrientation', 'commandvalue' => $orientation];
-        $result  = $this->SendCommand($payload);
-
-        return $result;
+        return $this->SendCommand($payload);
     }
 
     public function Layout()
     {
         $payload = ['command' => 'Layout'];
-        $result  = $this->SendCommand($payload);
-
-        return $result;
+        return $this->SendCommand($payload);
     }
 
     public function Identify()
     {
         $payload = ['command' => 'Identify'];
-        $result  = $this->SendCommand($payload);
-
-        return $result;
+        return $this->SendCommand($payload);
     }
 
     public function RequestAction($Ident, $Value)
@@ -920,8 +905,8 @@ class Nanoleaf extends IPSModule
                              'values'   => [
                                  [
                                      'deviceid'        => $this->ReadPropertyString('deviceid'),
-                                     'host'            => $this->ReadPropertyString('host'),
-                                     'port'            => $this->ReadPropertyString('port'),
+                                     'host'            => $this->ReadPropertyString(self::PROP_HOST),
+                                     'port'            => $this->ReadPropertyString(self::PROP_PORT),
                                      'serialNo'        => $this->ReadAttributeString('serialNo'),
                                      'firmwareVersion' => $this->ReadAttributeString('firmwareVersion'),
                                      'model'           => $this->ReadAttributeString('model'), ], ], ],
@@ -981,18 +966,6 @@ class Nanoleaf extends IPSModule
     protected function FormStatus()
     {
         $form = [
-            [
-                'code'    => 101,
-                'icon'    => 'inactive',
-                'caption' => 'Creating instance.', ],
-            [
-                'code'    => 102,
-                'icon'    => 'active',
-                'caption' => 'instance created.', ],
-            [
-                'code'    => 104,
-                'icon'    => 'inactive',
-                'caption' => 'interface closed.', ],
             [
                 'code'    => 201,
                 'icon'    => 'inactive',
