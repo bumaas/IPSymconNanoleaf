@@ -195,11 +195,14 @@ class Nanoleaf extends IPSModule
         $host    = $this->ReadPropertyString(self::PROP_HOST);
         $port    = $this->ReadPropertyString(self::PROP_PORT);
         $url     = 'http://' . $host . ':' . $port . '/api/v1/new';
+        $this->SendDebug(__FUNCTION__, $url, 0);
         $ch      = curl_init($url);
         $options = [
             CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_CUSTOMREQUEST  => 'POST',
-            CURLOPT_HTTPHEADER     => ['Content-type: application/json'], ];
+            CURLOPT_HTTPHEADER     => ['Content-type: application/json']
+        ];
         curl_setopt_array($ch, $options);
         $token_response = curl_exec($ch);
         curl_close($ch);
@@ -470,23 +473,23 @@ class Nanoleaf extends IPSModule
         $k = $v * (1 - $s * (1 - $f));
         switch ($i) {
             case 0:
-                list($r, $g, $b) = [$v, $k, $m];
+                [$r, $g, $b] = [$v, $k, $m];
                 break;
             case 1:
-                list($r, $g, $b) = [$n, $v, $m];
+                [$r, $g, $b] = [$n, $v, $m];
                 break;
             case 2:
-                list($r, $g, $b) = [$m, $v, $k];
+                [$r, $g, $b] = [$m, $v, $k];
                 break;
             case 3:
-                list($r, $g, $b) = [$m, $n, $v];
+                [$r, $g, $b] = [$m, $n, $v];
                 break;
             case 4:
-                list($r, $g, $b) = [$k, $m, $v];
+                [$r, $g, $b] = [$k, $m, $v];
                 break;
             case 5:
             case 6:
-                list($r, $g, $b) = [$v, $m, $n];
+                [$r, $g, $b] = [$v, $m, $n];
                 break;
         }
         $r = round($r * 255);
@@ -802,7 +805,7 @@ class Nanoleaf extends IPSModule
         // return current form
         return json_encode(
             [
-                'elements' => $this->FormHead(),
+                'elements' => $this->FormElements(),
                 'actions'  => $this->FormActions(),
                 'status'   => $this->FormStatus(), ]
         );
@@ -813,7 +816,7 @@ class Nanoleaf extends IPSModule
      *
      * @return array
      */
-    protected function FormHead()
+    protected function FormElements()
     {
         $form  = [
             [
@@ -823,7 +826,9 @@ class Nanoleaf extends IPSModule
                 'type'    => 'Label',
                 'caption' => 'Nanoleaf', ], ];
         $token = $this->ReadAttributeString('Token');
+        //$token = 'token';
         $uuid  = $this->ReadPropertyString('uuid');
+        //$uuid = 'uuid';
         if ($uuid == '') {
             $form = array_merge_recursive(
                 $form, [

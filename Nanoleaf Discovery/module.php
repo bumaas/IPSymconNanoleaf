@@ -5,6 +5,9 @@ declare(strict_types=1);
 class NanoleafDiscovery extends IPSModule
 {
     private const MODID_NANOLEAF = '{09AEFA0B-1494-CB8B-A7C0-1982D0D99C7E}';
+    private const MODID_SSDP = '{FFFFA648-B296-E785-96ED-065F7CEE6F29}';
+    private const HTTP_PREFIX = 'http://';
+
 
     public function Create()
     {
@@ -14,7 +17,6 @@ class NanoleafDiscovery extends IPSModule
 
         //we will wait until the kernel is ready
         $this->RegisterMessage(0, IPS_KERNELMESSAGE);
-        $this->RegisterMessage(0, IPS_KERNELSTARTED);
         $this->RegisterTimer('Discovery', 0, 'NanoleafDiscovery_Discover($_IPS[\'TARGET\']);');
     }
 
@@ -37,7 +39,7 @@ class NanoleafDiscovery extends IPSModule
         $this->SetTimerInterval('Discovery', 300000);
 
         // Status Error Kategorie zum Import auswählen
-        $this->SetStatus(102);
+        $this->SetStatus(IS_ACTIVE);
     }
 
     public function MessageSink($TimeStamp, $SenderID, $Message, $Data)
@@ -52,14 +54,12 @@ class NanoleafDiscovery extends IPSModule
             case IPS_KERNELMESSAGE:
                 if ($Data[0] === KR_READY) {
                     $this->ApplyChanges();
+
+                    $devices = $this->DiscoverDevices();
+                    if (!empty($devices)) {
+                        $this->WriteAttributeString('devices', json_encode($devices));
+                    }
                 }
-                break;
-            case IPS_KERNELSTARTED:
-                $devices = $this->DiscoverDevices();
-                if (!empty($devices)) {
-                    $this->WriteAttributeString('devices', json_encode($devices));
-                }
-                break;
 
             default:
                 break;
@@ -121,32 +121,29 @@ class NanoleafDiscovery extends IPSModule
 
     private function DiscoverDevices(): array
     {
-        $result = [];
         $devices = $this->mSearch();
         $this->SendDebug('Discover Response:', json_encode($devices), 0);
-        return $this->CreateDeviceList($result, $devices);
+        return $this->CreateDeviceList($devices);
     }
 
-    private function CreateDeviceList($result, $devices)
+    private function CreateDeviceList(array $devices): array
     {
+        $deviceList = [];
         foreach ($devices as $device) {
-            $obj = [];
 
+            $nanoLeafIp = $this->GetNanoleafIP($device);
+            $obj = [];
             $obj['uuid'] = $device['uuid'];
-            $this->SendDebug('uuid:', $obj['uuid'], 0);
             $obj['nl-devicename'] = $device['nl-devicename'];
-            $this->SendDebug('name:', $obj['nl-devicename'], 0);
             $obj['nl-deviceid'] = $device['nl-devicename'];
-            $this->SendDebug('device id:', $obj['nl-deviceid'], 0);
-            $location = $this->GetNanoleafIP($device);
-            $obj['host'] = $location['ip'];
-            $this->SendDebug('host:', $obj['host'], 0);
-            $obj['port'] = $location['port'];
-            $this->SendDebug('port:', $obj['port'], 0);
-            $result[] = $obj;
+            $obj['host'] =$nanoLeafIp['ip'];
+            $obj['port'] = $nanoLeafIp['port'];
+            $deviceList[] = $obj;
         }
 
-        return $result;
+        $this->SendDebug('deviceList:', json_encode($deviceList), 0);
+
+        return $deviceList;
     }
 
     /** Search Aurora nanoleaf_aurora:light / Canvas nanoleaf:nl29
@@ -156,16 +153,21 @@ class NanoleafDiscovery extends IPSModule
      */
     protected function mSearch(string $st = 'ssdp:all'): array
     {
-        $ssdp_ids = IPS_GetInstanceListByModuleID('{FFFFA648-B296-E785-96ED-065F7CEE6F29}');
-        $ssdp_id = $ssdp_ids[0];
-        $devices = YC_SearchDevices($ssdp_id, $st);
-        /*
-        $devices[]=['ST' => 'nanoleaf_aurora:light'
-                    , 'Location' => 'http://192.168.0.43:16021'
-                    , 'Fields' => ['S: uuid:18bc1a09-63f1-4777-9d97-3a040d1b09a6', 'NL-DEVICEID: 4F:0C:05:CD:28:28', 'NL-DEVICENAME: Light Panels 54:c3:ad']
-                    , 'USN' => 'uuid:18bc1a09-63f1-4777-9d97-3a040d1b09a6'
-                    ];
-        */
+        $ssdp_id = IPS_GetInstanceListByModuleID(self::MODID_SSDP)[0];
+
+        $fileName = __DIR__ .'/../Testdaten/Christian';
+
+        if (file_exists($fileName)){
+            $jsonContent = file_get_contents($fileName);
+
+            $jsondevices = json_decode($jsonContent, true)['devices'];
+            $devices = json_decode($jsondevices, true);
+            $this->SendDebug('TEST', sprintf('%s: %s', 'devices', print_r($devices, true)), 0);
+
+        } else {
+            $devices = YC_SearchDevices($ssdp_id, $st);
+        }
+
         $nanoleaf_response = [];
         $i = 0;
         foreach($devices as $device)
@@ -200,11 +202,9 @@ class NanoleafDiscovery extends IPSModule
     private function GetNanoleafIP($result): array
     {
         $location = $result['location'];
-        $location = str_ireplace('http://', '', $location);
+        $location = str_ireplace(self::HTTP_PREFIX, '', $location);
         $location = explode(':', $location);
-        $ip = $location[0];
-        $port = $location[1];
-        return ['ip' => $ip, 'port' => $port];
+        return ['ip' => $location[0], 'port' => $location[1]];
     }
 
     public function Discover()
@@ -227,16 +227,15 @@ class NanoleafDiscovery extends IPSModule
      */
     public function GetConfigurationForm()
     {
-        // return current form
-        $Form = json_encode([
-            'elements' => $this->FormHead(),
+        $configData = [
+            'elements' => $this->FormElements(),
             'actions'  => [],
             'status'   => $this->FormStatus(),
-        ]);
-        $this->SendDebug('FORM', $Form, 0);
+        ];
+        $this->SendDebug('FORM', json_encode($configData), 0);
         $this->SendDebug('FORM', json_last_error_msg(), 0);
 
-        return $Form;
+        return json_encode($configData);
     }
 
     /**
@@ -244,7 +243,7 @@ class NanoleafDiscovery extends IPSModule
      *
      * @return array
      */
-    private function FormHead(): array
+    private function FormElements(): array
     {
         return [
             [
