@@ -330,14 +330,16 @@ class Nanoleaf extends IPSModule
             $requesttype = 'PUT';
             $url         .= 'identify';
         }
+
+        $this->SendDebug(__FUNCTION__, sprintf('url: %s', $url), 0);
         $ch      = curl_init($url);
-        $options = [
+        curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_CUSTOMREQUEST  => $requesttype,
             CURLOPT_HTTPHEADER     => ['Content-type: application/json'],
-        ];
-        curl_setopt_array($ch, $options);
+        ]);
         if ($postfields !== '') {
+            $this->SendDebug(__FUNCTION__, sprintf('postfields: %s', $postfields), 0);
             curl_setopt($ch, CURLOPT_POSTFIELDS, $postfields);
         }
         $result = curl_exec($ch);
@@ -614,6 +616,9 @@ class Nanoleaf extends IPSModule
                 $effect_int = $effectposition['Value'];
             }
         }
+
+        $this->SendDebug(__FUNCTION__, sprintf('effects: %s, selected: %s', json_encode($effects), $effect_int), 0);
+
         $this->SetValue('effect', $effect_int);
 
         return $result;
