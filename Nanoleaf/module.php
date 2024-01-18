@@ -648,7 +648,7 @@ class Nanoleaf extends IPSModule
         return $this->SendCommand($payload);
     }
 
-    public function GetInfo()
+    public function GetInfo(): void
     {
         if (!$info = $this->GetAllInfo()){
             $this->SendDebug(__FUNCTION__, 'Failed', 0);
