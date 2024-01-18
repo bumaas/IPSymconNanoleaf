@@ -184,6 +184,7 @@ class Nanoleaf extends IPSModule
             return $allinfo;
         }
 
+        $this->SendDebug(__FUNCTION__, 'Failed', 0);
         return false; // could not get Info, Token not set
     }
 
@@ -204,17 +205,25 @@ class Nanoleaf extends IPSModule
             CURLOPT_HTTPHEADER     => ['Content-type: application/json']
         ];
         curl_setopt_array($ch, $options);
-        $token_response = curl_exec($ch);
+        $fileName = __DIR__ .'/../Testdaten/Christian';
+        if (file_exists($fileName)){
+            $jsonContent = file_get_contents($fileName);
+
+            $token_response = json_decode($jsonContent, true)['token_response'];
+            $this->SendDebug('TEST', sprintf('%s: %s', 'token_response',$token_response), 0);
+        } else {
+            $token_response = curl_exec($ch);
+        }
         curl_close($ch);
-        $this->SendDebug('Nanoleaf token response: ', json_encode($token_response), 0);
+
+        $this->SendDebug('Nanoleaf token response: ', $token_response, 0);
         if (empty($token_response)) {
             echo $this->Translate('Could not get token');
 
             return false;
         }
-
         $token = json_decode($token_response)->auth_token;
-        $this->SendDebug('Splitter Received Token:', $token, 0);
+        $this->SendDebug('Received Token:', $token, 0);
         $this->WriteAttributeString('Token', $token);
         IPS_Sleep(1000);
         $this->ValidateConfiguration();
@@ -641,7 +650,11 @@ class Nanoleaf extends IPSModule
 
     public function GetInfo()
     {
-        $info            = $this->GetAllInfo();
+        if (!$info = $this->GetAllInfo()){
+            $this->SendDebug(__FUNCTION__, 'Failed', 0);
+            return;
+        }
+
         $name            = $info['name'];
         $serialNo        = $info['serialnumber'];
         $firmwareVersion = $info['firmware'];
@@ -879,7 +892,7 @@ class Nanoleaf extends IPSModule
                                      'save'    => true,
                                      'visible' => true, ],
                                  [
-                                     'caption' => 'IP adress',
+                                     'caption' => 'IP address',
                                      'name'    => 'host',
                                      'width'   => '140px',
                                      'save'    => true, ],

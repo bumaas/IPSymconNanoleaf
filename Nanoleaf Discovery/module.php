@@ -5,11 +5,11 @@ declare(strict_types=1);
 class NanoleafDiscovery extends IPSModule
 {
     private const MODID_NANOLEAF = '{09AEFA0B-1494-CB8B-A7C0-1982D0D99C7E}';
-    private const MODID_SSDP = '{FFFFA648-B296-E785-96ED-065F7CEE6F29}';
-    private const HTTP_PREFIX = 'http://';
+    private const MODID_SSDP     = '{FFFFA648-B296-E785-96ED-065F7CEE6F29}';
+    private const HTTP_PREFIX    = 'http://';
 
 
-    public function Create()
+    public function Create(): void
     {
         //Never delete this line!
         parent::Create();
@@ -23,7 +23,7 @@ class NanoleafDiscovery extends IPSModule
     /**
      * Interne Funktion des SDK.
      */
-    public function ApplyChanges()
+    public function ApplyChanges(): void
     {
         //Never delete this line!
         parent::ApplyChanges();
@@ -42,7 +42,7 @@ class NanoleafDiscovery extends IPSModule
         $this->SetStatus(IS_ACTIVE);
     }
 
-    public function MessageSink($TimeStamp, $SenderID, $Message, $Data)
+    public function MessageSink($TimeStamp, $SenderID, $Message, $Data): void
     {
         switch ($Message) {
             case IM_CHANGESTATUS:
@@ -60,6 +60,7 @@ class NanoleafDiscovery extends IPSModule
                         $this->WriteAttributeString('devices', json_encode($devices));
                     }
                 }
+                break;
 
             default:
                 break;
@@ -74,18 +75,18 @@ class NanoleafDiscovery extends IPSModule
      */
     private function Get_ListConfiguration(): array
     {
-        $config_list = [];
+        $config_list  = [];
         $DeviceIDList = IPS_GetInstanceListByModuleID(self::MODID_NANOLEAF);
-        $devices = $this->DiscoverDevices();
+        $devices      = $this->DiscoverDevices();
         $this->SendDebug('Nanoleaf discovered devices', json_encode($devices), 0);
         if (!empty($devices)) {
             foreach ($devices as $device) {
                 $instanceID = 0;
                 $devicename = $device['nl-devicename'];
-                $uuid = $device['uuid'];
-                $host = $device['host'];
-                $port = $device['port'];
-                $device_id = $device['nl-deviceid'];
+                $uuid       = $device['uuid'];
+                $host       = $device['host'];
+                $port       = $device['port'];
+                $device_id  = $device['nl-deviceid'];
                 foreach ($DeviceIDList as $DeviceID) {
                     if ($uuid === IPS_GetProperty($DeviceID, 'uuid')) {
                         $devicename = IPS_GetName($DeviceID);
@@ -130,15 +131,14 @@ class NanoleafDiscovery extends IPSModule
     {
         $deviceList = [];
         foreach ($devices as $device) {
-
-            $nanoLeafIp = $this->GetNanoleafIP($device);
-            $obj = [];
-            $obj['uuid'] = $device['uuid'];
+            $nanoLeafIp           = $this->GetNanoleafIP($device);
+            $obj                  = [];
+            $obj['uuid']          = $device['uuid'];
             $obj['nl-devicename'] = $device['nl-devicename'];
-            $obj['nl-deviceid'] = $device['nl-devicename'];
-            $obj['host'] =$nanoLeafIp['ip'];
-            $obj['port'] = $nanoLeafIp['port'];
-            $deviceList[] = $obj;
+            $obj['nl-deviceid']   = $device['nl-devicename'];
+            $obj['host']          = $nanoLeafIp['ip'];
+            $obj['port']          = $nanoLeafIp['port'];
+            $deviceList[]         = $obj;
         }
 
         $this->SendDebug('deviceList:', json_encode($deviceList), 0);
@@ -147,6 +147,7 @@ class NanoleafDiscovery extends IPSModule
     }
 
     /** Search Aurora nanoleaf_aurora:light / Canvas nanoleaf:nl29
+     *
      * @param string $st
      *
      * @return array
@@ -155,45 +156,32 @@ class NanoleafDiscovery extends IPSModule
     {
         $ssdp_id = IPS_GetInstanceListByModuleID(self::MODID_SSDP)[0];
 
-        $fileName = __DIR__ .'/../Testdaten/Christian';
-
-        if (file_exists($fileName)){
+        $fileName = __DIR__ . '/../Testdaten/Christian';
+        if (file_exists($fileName)) {
             $jsonContent = file_get_contents($fileName);
 
             $jsondevices = json_decode($jsonContent, true)['devices'];
-            $devices = json_decode($jsondevices, true);
+            $devices     = json_decode($jsondevices, true);
             $this->SendDebug('TEST', sprintf('%s: %s', 'devices', print_r($devices, true)), 0);
-
         } else {
             $devices = YC_SearchDevices($ssdp_id, $st);
         }
 
         $nanoleaf_response = [];
-        $i = 0;
-        foreach($devices as $device)
-        {
-            if(isset($device['ST']))
-            {
-                if($device['ST'] === 'nanoleaf_aurora:light' || $device['ST'] === 'nanoleaf:nl29')
-                {
-                    if (isset($device['Location'])){
-                        $nanoleaf_response[$i]['location'] = $device['Location'];
+        $i                 = 0;
+        foreach ($devices as $device) {
+            if (isset($device['ST']) && in_array($device['ST'], ['nanoleaf_aurora:light', 'nanoleaf:nl29', 'nanoleaf:nl42'])) {
+                $nanoleaf_response[$i]['location'] = $device['Location'];
+                foreach ($device['Fields'] as $field) {
+                    if (stripos($field, 'nl-deviceid') === 0) {
+                        $nanoleaf_response[$i]['nl-deviceid'] = str_ireplace('nl-deviceid: ', '', $field);
                     }
-                    foreach($device['Fields'] as $field)
-                    {
-                        if(stripos($field, 'Location:') === 0) {
-                            $nanoleaf_response[$i]['location'] = str_ireplace('location: ', '', $field);
-                        }
-                        if(stripos($field, 'nl-deviceid') === 0) {
-                            $nanoleaf_response[$i]['nl-deviceid'] = str_ireplace('nl-deviceid: ', '', $field);
-                        }
-                        if(stripos($field, 'nl-devicename:') === 0) {
-                            $nanoleaf_response[$i]['nl-devicename'] = str_ireplace('nl-devicename: ', '', $field);
-                        }
+                    if (stripos($field, 'nl-devicename:') === 0) {
+                        $nanoleaf_response[$i]['nl-devicename'] = str_ireplace('nl-devicename: ', '', $field);
                     }
-                    $nanoleaf_response[$i]['uuid'] = str_ireplace('uuid:', '', $device['USN']);
-                    $i++;
                 }
+                $nanoleaf_response[$i]['uuid'] = str_ireplace('uuid:', '', $device['USN']);
+                $i++;
             }
         }
         return $nanoleaf_response;
@@ -207,7 +195,7 @@ class NanoleafDiscovery extends IPSModule
         return ['ip' => $location[0], 'port' => $location[1]];
     }
 
-    public function Discover()
+    public function Discover(): void
     {
         $this->LogMessage($this->Translate('Background Discovery of Nanoleaf Devices'), KL_NOTIFY);
         $devices = $this->DiscoverDevices();
@@ -225,7 +213,7 @@ class NanoleafDiscovery extends IPSModule
      *
      * @return string
      */
-    public function GetConfigurationForm()
+    public function GetConfigurationForm(): string
     {
         $configData = [
             'elements' => $this->FormElements(),
@@ -256,7 +244,7 @@ class NanoleafDiscovery extends IPSModule
                     'column'    => 'name',
                     'direction' => 'ascending',
                 ],
-                'columns' => [
+                'columns'  => [
                     [
                         'label'   => 'ID',
                         'name'    => 'id',
@@ -275,7 +263,7 @@ class NanoleafDiscovery extends IPSModule
                         'visible' => true,
                     ],
                     [
-                        'label' => 'IP adress',
+                        'label' => 'IP address',
                         'name'  => 'host',
                         'width' => '140px',
                     ],
@@ -290,7 +278,7 @@ class NanoleafDiscovery extends IPSModule
                         'width' => '350px',
                     ],
                 ],
-                'values' => $this->Get_ListConfiguration(),
+                'values'   => $this->Get_ListConfiguration(),
             ],
         ];
     }
