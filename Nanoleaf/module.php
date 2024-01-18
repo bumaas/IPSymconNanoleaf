@@ -610,7 +610,7 @@ class Nanoleaf extends IPSModule
         $payload    = ['command' => 'SelectEffect', 'commandvalue' => $effect];
         $result     = $this->SendCommand($payload);
         $effect_int = '1';
-        $effects    = $this->GetCurrentEffectProfile();
+        $effects    = $this->GetCurrentEffectProfileAssociations();
         foreach ($effects as $effectposition) {
             if ($effectposition['Name'] === $effect) {
                 $effect_int = (int) $effectposition['Value'];
@@ -626,10 +626,10 @@ class Nanoleaf extends IPSModule
 
     protected function SelectEffectInt(int $effect) // "Color Burst","Flames","Forest","Inner Peace","Nemo","Northern Lights","Romantic","Snowfall"
     {
-        $effects      = $this->GetCurrentEffectProfile();
-        foreach ($effects as $effectposition) {
-            if ((float) $effectposition['Value'] === $effect) {
-                $effectstring = $effectposition['Name'];
+        $effects      = $this->GetCurrentEffectProfileAssociations();
+        foreach ($this->GetCurrentEffectProfileAssociations() as $assoziation) {
+            if ((float) $assoziation['Value'] === $effect) {
+                $effectstring = $assoziation['Name'];
                 break;
             }
         }
@@ -639,7 +639,7 @@ class Nanoleaf extends IPSModule
         return $this->SelectEffect($effectstring);
     }
 
-    protected function GetCurrentEffectProfile()
+    protected function GetCurrentEffectProfileAssociations()
     {
         return IPS_GetVariableProfile('Nanoleaf.Effect' . $this->InstanceID)['Associations'];
     }
