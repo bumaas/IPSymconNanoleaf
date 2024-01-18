@@ -613,7 +613,7 @@ class Nanoleaf extends IPSModule
         $effects    = $this->GetCurrentEffectProfile();
         foreach ($effects as $effectposition) {
             if ($effectposition['Name'] === $effect) {
-                $effect_int = $effectposition['Value'];
+                $effect_int = (int) $effectposition['Value'];
             }
         }
 
@@ -626,12 +626,15 @@ class Nanoleaf extends IPSModule
 
     protected function SelectEffectInt(int $effect) // "Color Burst","Flames","Forest","Inner Peace","Nemo","Northern Lights","Romantic","Snowfall"
     {
-        $effectstring = 'Snowfall';
         $effects      = $this->GetCurrentEffectProfile();
         foreach ($effects as $effectposition) {
-            if ($effectposition['Value'] === $effect) {
+            if ((float) $effectposition['Value'] === $effect) {
                 $effectstring = $effectposition['Name'];
+                break;
             }
+        }
+        if (!isset($effectstring)){
+            trigger_error(sprintf('No effect with value %s found in profile Nanoleaf.Effect%s', $effect, $this->InstanceID), E_USER_ERROR);
         }
         return $this->SelectEffect($effectstring);
     }
