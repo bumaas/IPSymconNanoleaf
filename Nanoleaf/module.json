@@ -1,11 +1,12 @@
 {
-	"id": "{09AEFA0B-1494-CB8B-A7C0-1982D0D99C7E}",
-	"name": "Nanoleaf",
-	"type": 3,
-	"vendor": "Nanoleaf",
-	"aliases": ["Nanoleaf"],
-	"parentRequirements": [],
-	"childRequirements": [],
-	"implemented": [],
-	"prefix": "Nanoleaf"
+  "id":                 "{09AEFA0B-1494-CB8B-A7C0-1982D0D99C7E}",
+  "name":               "Nanoleaf",
+  "type":               3,
+  "vendor":             "Nanoleaf",
+  "aliases":            ["Nanoleaf"],
+  "parentRequirements": [],
+  "childRequirements":  [],
+  "implemented":        [],
+  "prefix":             "Nanoleaf",
+  "url":                "https://github.com/bumaas/IPSymconNanoleaf/blob/master/README.md"
 }
