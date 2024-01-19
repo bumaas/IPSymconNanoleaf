@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 class Nanoleaf extends IPSModule
 {
-    private const PROP_NAME = 'name';
-    private const PROP_HOST = 'host';
-    private const PROP_PORT = 'port';
-    private const HTTP_PREFIX    = 'http://';
+    private const PROP_NAME   = 'name';
+    private const PROP_HOST   = 'host';
+    private const PROP_PORT   = 'port';
+    private const HTTP_PREFIX = 'http://';
 
     public function Create(): void
     {
@@ -332,7 +332,7 @@ class Nanoleaf extends IPSModule
         }
 
         $this->SendDebug(__FUNCTION__, sprintf('url: %s', $url), 0);
-        $ch      = curl_init($url);
+        $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_CUSTOMREQUEST  => $requesttype,
@@ -436,15 +436,15 @@ class Nanoleaf extends IPSModule
         $this->validateProperty('g', $green, 0, 255);
         $this->validateProperty('b', $blue, 0, 255);
 
-        $red    /= 255;
-        $green  /= 255;
-        $blue   /= 255;
+        $red   /= 255;
+        $green /= 255;
+        $blue  /= 255;
 
         $maxRGB = max($red, $green, $blue);
         $minRGB = min($red, $green, $blue);
 
-        $chroma     = $maxRGB - $minRGB;
-        $value      = $maxRGB * 100;
+        $chroma = $maxRGB - $minRGB;
+        $value  = $maxRGB * 100;
 
         if ($chroma === 0) {
             return ['h' => 0, 's' => 0, 'v' => (int)$value];
@@ -465,13 +465,15 @@ class Nanoleaf extends IPSModule
         return ['h' => (int)round($hue), 's' => (int)round($saturation), 'v' => (int)$value];
     }
 
-    private function validateProperty($propName, $value, $min, $max): void {
+    private function validateProperty($propName, $value, $min, $max): void
+    {
         if (!($value >= $min && $value <= $max)) {
             throw new RuntimeException("$propName property must be between $min and $max, but is: $value");
         }
     }
 
-    private function computeRGB($i, $v, $k, $m, $n): array {
+    private function computeRGB($i, $v, $k, $m, $n): array
+    {
         switch ($i) {
             case 0:
                 return [$v, $k, $m];
@@ -490,6 +492,7 @@ class Nanoleaf extends IPSModule
                 trigger_error(sprintf('not expected i: %s', $i), E_USER_ERROR);
         }
     }
+
     protected function HSV2RGB($h, $s, $v): array
     {
         $this->validateProperty('h', $h, 0, 359);
@@ -605,43 +608,52 @@ class Nanoleaf extends IPSModule
         return $this->SendCommand($payload);
     }
 
-    public function SelectEffect(string $effect) // "Color Burst","Flames","Forest","Inner Peace","Nemo","Northern Lights","Romantic","Snowfall"
+    private function SelectEffect(string $effectName) // "Color Burst","Flames","Forest","Inner Peace","Nemo","Northern Lights","Romantic","Snowfall"
     {
-        $payload    = ['command' => 'SelectEffect', 'commandvalue' => $effect];
-        $result     = $this->SendCommand($payload);
-        $effect_int = '1';
-        $effects    = $this->GetCurrentEffectProfileAssociations();
-        foreach ($effects as $effectposition) {
-            if ($effectposition['Name'] === $effect) {
-                $effect_int = (int) $effectposition['Value'];
-            }
+        $payload = ['command' => 'SelectEffect', 'commandvalue' => $effectName];
+        $result  = $this->SendCommand($payload);
+        $effects = IPS_GetVariableProfile('Nanoleaf.Effect' . $this->InstanceID)['Associations'];
+
+        $effectNumber = $this->findEffectNumber($effects, $effectName);
+
+        if ($effectNumber === null) {
+            trigger_error(sprintf('No effect with name %s found in profile Nanoleaf.Effect%s', $effectName, $this->InstanceID), E_USER_ERROR);
         }
 
-        $this->SendDebug(__FUNCTION__, sprintf('effects: %s, selected: %s', json_encode($effects), $effect_int), 0);
+        $this->SendDebug(__FUNCTION__, sprintf('effects: %s, selected: %s', json_encode($effects), $effectNumber), 0);
 
-        $this->SetValue('effect', $effect_int);
+        $this->SetValue('effect', $effectNumber);
 
         return $result;
     }
 
-    protected function SelectEffectInt(int $effect) // "Color Burst","Flames","Forest","Inner Peace","Nemo","Northern Lights","Romantic","Snowfall"
-    {
-        $effects      = $this->GetCurrentEffectProfileAssociations();
-        foreach ($this->GetCurrentEffectProfileAssociations() as $assoziation) {
-            if ((float) $assoziation['Value'] === $effect) {
-                $effectstring = $assoziation['Name'];
-                break;
+    private function findEffectNumber(array $effects, string $effectName): ?int {
+        foreach ($effects as $effectposition) {
+            if ($effectposition['Name'] === $effectName) {
+                return (int)$effectposition['Value'];
             }
         }
-        if (!isset($effectstring)){
+        return null;
+    }
+    private function SelectEffectInt(int $effect) // "Color Burst","Flames","Forest","Inner Peace","Nemo","Northern Lights","Romantic","Snowfall"
+    {
+        $effectName = $this->findEffectName($effect);
+
+        if (!$effectName) {
             trigger_error(sprintf('No effect with value %s found in profile Nanoleaf.Effect%s', $effect, $this->InstanceID), E_USER_ERROR);
         }
-        return $this->SelectEffect($effectstring);
+
+        return $this->SelectEffect($effectName);
     }
 
-    protected function GetCurrentEffectProfileAssociations()
+    private function findEffectName(int $effectValue): ?string
     {
-        return IPS_GetVariableProfile('Nanoleaf.Effect' . $this->InstanceID)['Associations'];
+        foreach (IPS_GetVariableProfile('Nanoleaf.Effect' . $this->InstanceID)['Associations'] as $assoziation) {
+            if ((int)$assoziation['Value'] === $effectValue) {
+                return $assoziation['Name'];
+            }
+        }
+        return null;
     }
 
     public function GetEffect()
