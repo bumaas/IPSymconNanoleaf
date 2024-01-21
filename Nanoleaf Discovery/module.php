@@ -17,7 +17,6 @@ class NanoleafDiscovery extends IPSModule
 
         //we will wait until the kernel is ready
         $this->RegisterMessage(0, IPS_KERNELMESSAGE);
-        $this->RegisterTimer('Discovery', 0, 'NanoleafDiscovery_Discover($_IPS[\'TARGET\']);');
     }
 
     /**
@@ -36,7 +35,6 @@ class NanoleafDiscovery extends IPSModule
         if (!empty($devices)) {
             $this->WriteAttributeString('devices', json_encode($devices));
         }
-        $this->SetTimerInterval('Discovery', 300000);
 
         // Status Error Kategorie zum Import auswählen
         $this->SetStatus(IS_ACTIVE);
@@ -193,15 +191,6 @@ class NanoleafDiscovery extends IPSModule
         $location = str_ireplace(self::HTTP_PREFIX, '', $location);
         $location = explode(':', $location);
         return ['ip' => $location[0], 'port' => $location[1]];
-    }
-
-    public function Discover(): void
-    {
-        $this->LogMessage($this->Translate('Background Discovery of Nanoleaf Devices'), KL_NOTIFY);
-        $devices = $this->DiscoverDevices();
-        if (!empty($devices)) {
-            $this->WriteAttributeString('devices', json_encode($devices));
-        }
     }
 
     /***********************************************************

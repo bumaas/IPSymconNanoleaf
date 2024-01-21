@@ -420,7 +420,7 @@ class Nanoleaf extends IPSModule
         return $this->RGB2HSV(hexdec($r), hexdec($g), hexdec($b));
     }
 
-    private function HSV2HEX($h, $s, $v): string
+    private function HSV2HEX(int $h, int $s, int $v): string
     {
         $rgb = $this->HSV2RGB($h, $s, $v);
         $r   = str_pad(dechex($rgb['r']), 2, '0', STR_PAD_LEFT);
@@ -430,7 +430,7 @@ class Nanoleaf extends IPSModule
         return $r . $g . $b;
     }
 
-    protected function RGB2HSV($red, $green, $blue): array
+    protected function RGB2HSV(int $red, int $green, int $blue): array
     {
         $this->validateProperty('r', $red, 0, 255);
         $this->validateProperty('g', $green, 0, 255);
@@ -465,7 +465,7 @@ class Nanoleaf extends IPSModule
         return ['h' => (int)round($hue), 's' => (int)round($saturation), 'v' => (int)$value];
     }
 
-    private function validateProperty($propName, $value, $min, $max): void
+    private function validateProperty(string $propName, int $value, int $min, int $max): void
     {
         if (!($value >= $min && $value <= $max)) {
             throw new RuntimeException("$propName property must be between $min and $max, but is: $value");
@@ -493,24 +493,21 @@ class Nanoleaf extends IPSModule
         }
     }
 
-    protected function HSV2RGB($h, $s, $v): array
+    protected function HSV2RGB(int $h, int $s, int $v): array
     {
         $this->validateProperty('h', $h, 0, 359);
         $this->validateProperty('s', $s, 0, 100);
         $this->validateProperty('v', $v, 0, 100);
 
-        $h = $h * 6 / 360;
-        $s /= 100;
-        $v /= 100;
-        $i = floor($h);
+        $i = floor($h * 6 / 360);
         $f = $h - $i;
-        $m = $v * (1 - $s);
-        $n = $v * (1 - $s * $f);
-        $k = $v * (1 - $s * (1 - $f));
+        $m = $v/100 * (1 - $s/100);
+        $n = $v/100 * (1 - $s/100 * $f);
+        $k = $v/100 * (1 - $s/100 * (1 - $f));
         [$r, $g, $b] = $this->computeRGB($i, $v, $k, $m, $n);
-        $r = round($r * 255);
-        $g = round($g * 255);
-        $b = round($b * 255);
+        $r = (int) round($r * 255);
+        $g = (int) round($g * 255);
+        $b = (int) round($b * 255);
 
         return ['r' => $r, 'g' => $g, 'b' => $b];
     }
