@@ -408,12 +408,12 @@ class Nanoleaf extends IPSModule
         return $result;
     }
 
-    public function SetColor(int $hexcolor): void
+    public function SetColor(int $value): void
     {
-        $this->SendDebug(__FUNCTION__, sprintf('hexcolor: %s', $hexcolor), 0);
-        $this->SetValue(self::VAR_IDENT_COLOR, $hexcolor);
+        $this->SendDebug(__FUNCTION__, sprintf('value: %s', $value), 0);
+        $this->SetValue(self::VAR_IDENT_COLOR, $value);
 
-        $hex = str_pad(dechex($hexcolor), 6, '0', STR_PAD_LEFT);
+        $hex = str_pad(dechex($value), 6, '0', STR_PAD_LEFT);
         $hsv = $this->HEX2HSV($hex);
 
         $this->SetHue($hsv['h']);
@@ -438,7 +438,7 @@ class Nanoleaf extends IPSModule
         return $this->RGB2HSV(hexdec($r), hexdec($g), hexdec($b));
     }
 
-    private function HSV2HEX(int $h, int $s, int $v): string
+    private function HSV2HEX(int $h, float $s, float $v): string
     {
         $rgb = $this->HSV2RGB($h, $s, $v);
         $r   = str_pad(dechex($rgb['r']), 2, '0', STR_PAD_LEFT);
@@ -483,7 +483,7 @@ class Nanoleaf extends IPSModule
         return ['h' => (int)round($hue), 's' => (int)round($saturation), 'v' => (int)$value];
     }
 
-    private function validateProperty(string $propName, int $value, int $min, int $max): void
+    private function validateProperty(string $propName, $value, $min, int $max): void
     {
         if (!($value >= $min && $value <= $max)) {
             throw new RuntimeException("$propName property must be between $min and $max, but is: $value");
@@ -504,24 +504,23 @@ class Nanoleaf extends IPSModule
             case 4:
                 return [$k, $m, $v];
             case 5:
-            case 6:
-                return [$v, $m, $n];
             default:
-                trigger_error(sprintf('not expected i: %s', $i), E_USER_ERROR);
+                return [$v, $m, $n];
         }
     }
 
-    protected function HSV2RGB(int $h, int $s, int $v): array
+    private function HSV2RGB(int $h, float $s, float $v): array
     {
-        $this->validateProperty('h', $h, 0, 359);
-        $this->validateProperty('s', $s, 0, 100);
-        $this->validateProperty('v', $v, 0, 100);
+        $this->validateProperty('h', $h, 0, 360);
+        $this->validateProperty('s', $s, 0, 1);
+        $this->validateProperty('v', $v, 0, 1);
 
-        $i = floor($h * 6 / 360);
-        $f = $h - $i;
-        $m = $v / 100 * (1 - $s / 100);
-        $n = $v / 100 * (1 - $s / 100 * $f);
-        $k = $v / 100 * (1 - $s / 100 * (1 - $f));
+        $hh = $h / 60;
+        $i = (int) $hh;
+        $f = $hh - $i;
+        $m = $v * (1 - $s);
+        $n = $v * (1 - $s * $f);
+        $k = $v * (1 - $s * (1 - $f));
         [$r, $g, $b] = $this->computeRGB($i, $v, $k, $m, $n);
         $r = (int)round($r * 255);
         $g = (int)round($g * 255);
@@ -533,9 +532,9 @@ class Nanoleaf extends IPSModule
     private function SetValueColor(): void
     {
         $hsb      = $this->GetHSB();
-        $hex      = $this->HSV2HEX($hsb['hue'], $hsb['saturation'], $hsb['brightness']);
-        $hexcolor = hexdec($hex);
-        $this->SetValue(self::VAR_IDENT_COLOR, $hexcolor);
+        $hex      = $this->HSV2HEX($hsb['hue'], $hsb['saturation']/100, $hsb['brightness']/100);
+        $this->SendDebug(__FUNCTION__, sprintf('hex: #%s, value: %s', $hex, hexdec($hex)), 0);
+        $this->SetValue(self::VAR_IDENT_COLOR, hexdec($hex));
     }
 
     private function SetBrightness(int $brightness)
