@@ -8,6 +8,7 @@ class NanoleafDiscovery extends IPSModule
     private const MODID_SSDP     = '{FFFFA648-B296-E785-96ED-065F7CEE6F29}';
     private const HTTP_PREFIX    = 'http://';
 
+    private const MOCK_FILE = __DIR__ . '/../Testdaten/Mocks';
 
     public function Create(): void
     {
@@ -154,9 +155,8 @@ class NanoleafDiscovery extends IPSModule
     {
         $ssdp_id = IPS_GetInstanceListByModuleID(self::MODID_SSDP)[0];
 
-        $fileName = __DIR__ . '/../Testdaten/Christian';
-        if (file_exists($fileName)) {
-            $jsonContent = file_get_contents($fileName);
+        if (file_exists(self::MOCK_FILE)) {
+            $jsonContent = file_get_contents(self::MOCK_FILE);
 
             $jsondevices = json_decode($jsonContent, true)['devices'];
             $devices     = json_decode($jsondevices, true);

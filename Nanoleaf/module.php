@@ -1,5 +1,8 @@
 <?php
 
+// hier gibt es einen Farbrechner: https://www.mediaevent.de/css/farbrechner.html
+// Nanoleaf in Postman: https://documenter.getpostman.com/view/1559645/RW1gEcCH#intro
+
 declare(strict_types=1);
 
 class Nanoleaf extends IPSModule
@@ -9,6 +12,14 @@ class Nanoleaf extends IPSModule
     private const PROP_PORT   = 'port';
     private const HTTP_PREFIX = 'http://';
 
+    private const VAR_IDENT_COLOR = 'color';
+    private const VAR_IDENT_HUE = 'hue';
+    private const VAR_IDENT_SATURATION = 'saturation';
+    private const VAR_IDENT_BRIGHTNESS = 'Brightness';
+
+    private const TIMER_UPDATE = 'NanoleafTimerUpdate';
+
+    private const MOCK_FILE = __DIR__ . '/../Testdaten/Mocks';
     public function Create(): void
     {
         //Never delete this line!
@@ -27,7 +38,7 @@ class Nanoleaf extends IPSModule
         $this->RegisterPropertyInteger('UpdateInterval', 5);
         $this->RegisterPropertyString('NanoleafInformation', '');
         $this->RegisterAttributeString('Token', '');
-        $this->RegisterTimer('NanoleafTimerUpdate', 5000, 'Nanoleaf_GetAllInfo(' . $this->InstanceID . ');');
+        $this->RegisterTimer(self::TIMER_UPDATE, 5000, 'Nanoleaf_GetAllInfo(' . $this->InstanceID . ');');
         //we will wait until the kernel is ready
         $this->RegisterMessage(0, IPS_KERNELMESSAGE);
     }
@@ -48,15 +59,15 @@ class Nanoleaf extends IPSModule
     {
         $this->RegisterVariableBoolean('State', $this->Translate('state'), '~Switch', 1);
         $this->EnableAction('State');
-        $this->RegisterVariableInteger('color', $this->Translate('color'), '~HexColor', 2); // Color Hex, integer
-        $this->EnableAction('color');
+        $this->RegisterVariableInteger(self::VAR_IDENT_COLOR, $this->Translate('color'), '~HexColor', 2); // Color Hex, integer
+        $this->EnableAction(self::VAR_IDENT_COLOR);
         $this->RegisterProfileInteger('Nanoleaf.Hue', 'Light', '', '', 0, 359, 1, 0);
-        $this->RegisterVariableInteger('hue', $this->Translate('hue'), 'Nanoleaf.Hue', 3); // Hue (0-359), integer
-        $this->EnableAction('hue');
-        $this->RegisterVariableInteger('saturation', $this->Translate('sat'), '~Intensity.100', 4); // Saturation (0-100)
-        $this->EnableAction('saturation');
-        $this->RegisterVariableInteger('Brightness', $this->Translate('brightness'), '~Intensity.100', 5); // Brightness (0-100)
-        $this->EnableAction('Brightness');
+        $this->RegisterVariableInteger(self::VAR_IDENT_HUE, $this->Translate('hue'), 'Nanoleaf.Hue', 3); // Hue (0-359), integer
+        $this->EnableAction(self::VAR_IDENT_HUE);
+        $this->RegisterVariableInteger(self::VAR_IDENT_SATURATION, $this->Translate('sat'), '~Intensity.100', 4); // Saturation (0-100)
+        $this->EnableAction(self::VAR_IDENT_SATURATION);
+        $this->RegisterVariableInteger(self::VAR_IDENT_BRIGHTNESS, $this->Translate('brightness'), '~Intensity.100', 5); // Brightness (0-100)
+        $this->EnableAction(self::VAR_IDENT_BRIGHTNESS);
 
         $this->RegisterProfileInteger('Nanoleaf.Colortemperature', 'Light', '', '', 1200, 6500, 100, 0);
         $this->RegisterVariableInteger('colortemperature', $this->Translate('ct'), 'Nanoleaf.Colortemperature', 6); // "max" : 6500, "min" : 1200
@@ -104,7 +115,7 @@ class Nanoleaf extends IPSModule
     private function SetUpdateIntervall(): void
     {
         $interval = ($this->ReadPropertyInteger('UpdateInterval')) * 1000; // interval ms
-        $this->SetTimerInterval('NanoleafTimerUpdate', $interval);
+        $this->SetTimerInterval(self::TIMER_UPDATE, $interval);
     }
 
     public function UpdateEffectProfile(): array
@@ -156,8 +167,16 @@ class Nanoleaf extends IPSModule
 
     public function GetAllInfo()
     {
-        $payload = ['command' => 'GetAllInfo'];
-        $info    = $this->SendCommand($payload);
+        $payload  = ['command' => 'GetAllInfo'];
+        if (file_exists(self::MOCK_FILE)) {
+            $jsonContent = file_get_contents(self::MOCK_FILE);
+
+            $info = json_decode($jsonContent, true)['GetAllInfo_response'];
+            $this->SendDebug('TEST', sprintf('%s: %s', 'GetAllInfo_response', $info), 0);
+        } else {
+            $info = $this->SendCommand($payload);
+        }
+
         if ($info) {
             $data            = json_decode($info, false);
             $name            = $data->name;
@@ -173,9 +192,10 @@ class Nanoleaf extends IPSModule
             $colormode  = $data->state->colorMode;
 
             $this->SetValue('State', $state);
-            $this->SetValue('Brightness', $brightness);
-            $this->SetValue('hue', $hue);
-            $this->SetValue('saturation', $sat);
+            $this->SetValue(self::VAR_IDENT_BRIGHTNESS, $brightness);
+            $this->SetValue(self::VAR_IDENT_HUE, $hue);
+            $this->SetValue(self::VAR_IDENT_SATURATION, $sat);
+            $this->SetValueColor();
             $this->SetValue('colortemperature', $ct);
 
             return [
@@ -213,9 +233,8 @@ class Nanoleaf extends IPSModule
             CURLOPT_HTTPHEADER     => ['Content-type: application/json']
         ];
         curl_setopt_array($ch, $options);
-        $fileName = __DIR__ . '/../Testdaten/Christian';
-        if (file_exists($fileName)) {
-            $jsonContent = file_get_contents($fileName);
+        if (file_exists(self::MOCK_FILE)) {
+            $jsonContent = file_get_contents(self::MOCK_FILE);
 
             $token_response = json_decode($jsonContent, true)['token_response'];
             $this->SendDebug('TEST', sprintf('%s: %s', 'token_response', $token_response), 0);
@@ -331,7 +350,8 @@ class Nanoleaf extends IPSModule
             $url         .= 'identify';
         }
 
-        $this->SendDebug(__FUNCTION__, sprintf('url: %s', $url), 0);
+        $this->SendDebug(__FUNCTION__, sprintf('command: %s, url: %s, postfields: %s', $command, $url, $postfields), 0);
+
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
@@ -339,7 +359,6 @@ class Nanoleaf extends IPSModule
             CURLOPT_HTTPHEADER     => ['Content-type: application/json'],
         ]);
         if ($postfields !== '') {
-            $this->SendDebug(__FUNCTION__, sprintf('postfields: %s', $postfields), 0);
             curl_setopt($ch, CURLOPT_POSTFIELDS, $postfields);
         }
         $result = curl_exec($ch);
@@ -391,23 +410,22 @@ class Nanoleaf extends IPSModule
 
     public function SetColor(int $hexcolor): void
     {
+        $this->SendDebug(__FUNCTION__, sprintf('hexcolor: %s', $hexcolor), 0);
+        $this->SetValue(self::VAR_IDENT_COLOR, $hexcolor);
+
         $hex = str_pad(dechex($hexcolor), 6, '0', STR_PAD_LEFT);
         $hsv = $this->HEX2HSV($hex);
-        $this->SetValue('color', $hexcolor);
-        $hue        = $hsv['h'];
-        $saturation = $hsv['s'];
-        $brightness = $hsv['v'];
 
-        $this->SetHue($hue);
-        $this->SetSaturation($saturation);
-        $this->SetBrightness($brightness);
+        $this->SetHue($hsv['h']);
+        $this->SetSaturation($hsv['s']);
+        $this->SetBrightness($hsv['v']);
     }
 
     private function GetHSB(): array
     {
-        $hue        = $this->GetValue('hue');
-        $saturation = $this->GetValue('saturation');
-        $brightness = $this->GetValue('Brightness');
+        $hue        = $this->GetValue(self::VAR_IDENT_HUE);
+        $saturation = $this->GetValue(self::VAR_IDENT_SATURATION);
+        $brightness = $this->GetValue(self::VAR_IDENT_BRIGHTNESS);
         return ['hue' => $hue, 'saturation' => $saturation, 'brightness' => $brightness];
     }
 
@@ -501,83 +519,53 @@ class Nanoleaf extends IPSModule
 
         $i = floor($h * 6 / 360);
         $f = $h - $i;
-        $m = $v/100 * (1 - $s/100);
-        $n = $v/100 * (1 - $s/100 * $f);
-        $k = $v/100 * (1 - $s/100 * (1 - $f));
+        $m = $v / 100 * (1 - $s / 100);
+        $n = $v / 100 * (1 - $s / 100 * $f);
+        $k = $v / 100 * (1 - $s / 100 * (1 - $f));
         [$r, $g, $b] = $this->computeRGB($i, $v, $k, $m, $n);
-        $r = (int) round($r * 255);
-        $g = (int) round($g * 255);
-        $b = (int) round($b * 255);
+        $r = (int)round($r * 255);
+        $g = (int)round($g * 255);
+        $b = (int)round($b * 255);
 
         return ['r' => $r, 'g' => $g, 'b' => $b];
     }
 
-    protected function SetHexColor(): void
+    private function SetValueColor(): void
     {
         $hsb      = $this->GetHSB();
         $hex      = $this->HSV2HEX($hsb['hue'], $hsb['saturation'], $hsb['brightness']);
         $hexcolor = hexdec($hex);
-        $this->SetValue('color', $hexcolor);
+        $this->SetValue(self::VAR_IDENT_COLOR, $hexcolor);
     }
 
-    public function SetBrightness(int $brightness)
+    private function SetBrightness(int $brightness)
     {
         $payload = ['command' => 'SetBrightness', 'commandvalue' => $brightness];
         $result  = $this->SendCommand($payload);
-        $this->SetValue('Brightness', $brightness);
-        $this->SetHexColor();
+        $this->SetValue(self::VAR_IDENT_BRIGHTNESS, $brightness);
+        $this->SetValueColor();
 
         return $result;
     }
 
-    public function GetBrightness()
-    {
-        $payload         = ['command' => 'GetBrightness'];
-        $brightness_json = $this->SendCommand($payload);
-        $brightness      = json_decode($brightness_json, true)['value'];
-        $this->SetValue('Brightness', $brightness);
-
-        return $brightness;
-    }
-
-    public function SetHue(int $hue)
+    private function SetHue(int $hue)
     {
         $payload = ['command' => 'SetHue', 'commandvalue' => $hue];
         $result  = $this->SendCommand($payload);
-        $this->SetValue('hue', $hue);
-        $this->SetHexColor();
+        $this->SetValue(self::VAR_IDENT_HUE, $hue);
+        $this->SetValueColor();
 
         return $result;
     }
 
-    public function GetHue()
-    {
-        $payload  = ['command' => 'GetHue'];
-        $hue_json = $this->SendCommand($payload);
-        $hue      = json_decode($hue_json, true)['value'];
-        $this->SetValue('hue', $hue);
-
-        return $hue;
-    }
-
-    public function SetSaturation(int $sat)
+    private function SetSaturation(int $sat)
     {
         $payload = ['command' => 'SetSaturation', 'commandvalue' => $sat];
         $result  = $this->SendCommand($payload);
-        $this->SetValue('saturation', $sat);
-        $this->SetHexColor();
+        $this->SetValue(self::VAR_IDENT_SATURATION, $sat);
+        $this->SetValueColor();
 
         return $result;
-    }
-
-    public function GetSaturation()
-    {
-        $payload  = ['command' => 'GetSaturation'];
-        $sat_json = $this->SendCommand($payload);
-        $sat      = json_decode($sat_json, true)['value'];
-        $this->SetValue('saturation', $sat);
-
-        return $sat;
     }
 
     public function SetColortemperature(int $ct)
@@ -624,7 +612,8 @@ class Nanoleaf extends IPSModule
         return $result;
     }
 
-    private function findEffectNumber(array $effects, string $effectName): ?int {
+    private function findEffectNumber(array $effects, string $effectName): ?int
+    {
         foreach ($effects as $effectposition) {
             if ($effectposition['Name'] === $effectName) {
                 return (int)$effectposition['Value'];
@@ -632,6 +621,7 @@ class Nanoleaf extends IPSModule
         }
         return null;
     }
+
     private function SelectEffectInt(int $effect) // "Color Burst","Flames","Forest","Inner Peace","Nemo","Northern Lights","Romantic","Snowfall"
     {
         $effectName = $this->findEffectName($effect);
@@ -720,7 +710,7 @@ class Nanoleaf extends IPSModule
                     $this->Off();
                 }
                 break;
-            case 'color':
+            case self::VAR_IDENT_COLOR:
                 $this->SetColor($Value);
                 break;
             case 'Brightness':
