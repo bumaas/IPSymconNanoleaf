@@ -19,7 +19,7 @@ Modul für IP-Symcon ab Version 5.1 ermöglicht das Schalten von Nanoleaf
 
 ## 1. Funktionsumfang
 
-Mit dem Modul lässt sie ein Nanoleaf von IP-Symcon aus schalten.
+Mit dem Modul lässt sich ein Nanoleaf von IP-Symcon aus schalten.
 
 ### Funktionen:  
 

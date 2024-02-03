@@ -3,18 +3,16 @@
 		"de": { 
 			"name": "Name",
 			"serial number": "Seriennummer",
-			"firmware version": "Firmware Version",
 			"model": "Modell",
-			"Get Nanoleaf info": "Nanoleaf Information abholen",
-			"Device ID": "Geräte ID",
+			"Get Nanoleaf info": "Nanoleaf Informationen abholen",
 			"IP address": "IP Adresse",
 			"Port": "Port",
 			"Serial Number": "Seriennummer",
 			"Firmware Version": "Firmware Version",
-			"Update Interval Nanoleaf": "Aktualisierungsintervall Nanoleaf",
-			"This device should be created by the Nanoleaf dicovery instance, please open the Nanoleaf discovery instance and create the device there.": "Diese Geräteinstanz muss mit der Nanoleaf Discovery Instanz erzeugt werden, bitte in die Nanoleaf Discovery Instanz wechseln und dort die Instanz anlegen lassen.",
+			"Update Interval": "Aktualisierungsintervall",
+			"Seconds": "Sekunden",
 			"1. Hold the on-off button down for 5-7 seconds until the LED starts flashing in a pattern": "1. Den An/Aus Knopf des Nanoleaf für 5 - 7 Sekunden gedrückt halten bis die LED mit dem Blinken beginnt",
-			"2. Press the button below Get Token": "2. Den Knopf drücken um einen Token vom Gerät zu holen",
+			"2. Press the button below Get Token": "2. Den Knopf drücken, um einen Token vom Gerät zu holen",
 			"Get Token": "Token abholen",
 			"Could not get token": "Konnte den Token nicht abholen",
 			"Model": "Model",
@@ -26,12 +24,15 @@
 			"colormode": "Farbmodus",
 			"effect": "Effekt",
 			"color": "Farbe",
-			"Update Effects": "Update Effekte",
+			"Update Effects": "Effekte aktualisieren",
 			"Get Device Info": "Nanoleaf Info auslesen",
-			"Authorization": "Authorisierung",
-			"Creating instance.": "Instanz erstellen",
-			"instance created.": "Instanz erstellt",
-			"interface closed.": "Interface geschlossen"
+			"Authorization": "Autorisierung",
+			"Host is invalid.": "ungültige IP Adresse",
+			"Port is invalid.": "ungültiger Port",
+			"Token not set.": "Token nicht gesetzt",
+			"Received Token": "Erhaltener Token",
+			"Should the Token be used?": "Soll der Token übernommen werden?",
+			"Cancel": "Abbrechen"
 		}
 	}
 }

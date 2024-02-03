@@ -74,11 +74,11 @@ class NanoleafDiscovery extends IPSModule
      */
     private function Get_ListConfiguration(): array
     {
-        $config_list  = [];
         $DeviceIDList = IPS_GetInstanceListByModuleID(self::MODID_NANOLEAF);
         $devices      = $this->DiscoverDevices();
         $this->SendDebug('Nanoleaf discovered devices', json_encode($devices), 0);
         if (!empty($devices)) {
+            $config_list  = [];
             foreach ($devices as $device) {
                 $instanceID = 0;
                 $devicename = $device['nl-devicename'];
@@ -87,7 +87,7 @@ class NanoleafDiscovery extends IPSModule
                 $port       = $device['port'];
                 $device_id  = $device['nl-deviceid'];
                 foreach ($DeviceIDList as $DeviceID) {
-                    if ($uuid === IPS_GetProperty($DeviceID, 'uuid')) {
+                    if ($host === IPS_GetProperty($DeviceID, 'host') && $port === IPS_GetProperty($DeviceID, 'port')) {
                         $devicename = IPS_GetName($DeviceID);
                         $this->SendDebug('Broadlink Config', 'device found: ' . utf8_decode($devicename) . ' (' . $DeviceID . ')', 0);
                         $instanceID = $DeviceID;
@@ -105,18 +105,16 @@ class NanoleafDiscovery extends IPSModule
                     'create'     => [
                         'moduleID'      => self::MODID_NANOLEAF,
                         'configuration' => [
-                            'name'     => $devicename,
-                            'deviceid' => $device_id,
                             'host'     => $host,
-                            'port'     => $port,
-                            'uuid'     => $uuid,
+                            'port'     => $port
                         ],
                     ],
                 ];
             }
+            return $config_list;
         }
 
-        return $config_list;
+        return [];
     }
 
     private function DiscoverDevices(): array

@@ -4,9 +4,9 @@
 	"name": "Nanoleaf",
 	"url": "nanoleaf.me",
 	"compatibility": {
-		"version": "5.3"
+		"version": "7.0"
 	},
-	"version": "0.9",
-	"build": 11,
-	"date": 1705923606
+	"version": "1.0",
+	"build": 12,
+	"date": 1706960447
 }
