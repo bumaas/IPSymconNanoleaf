@@ -30,8 +30,8 @@
 			"Host is invalid.": "ungültige IP Adresse",
 			"Port is invalid.": "ungültiger Port",
 			"Token not set.": "Token nicht gesetzt",
-			"Received Token": "Erhaltener Token",
-			"Should the Token be used?": "Soll der Token übernommen werden?",
+			"Received Token: %s": "Erhaltener Token: %s",
+			"Should the token be used?": "Soll der Token übernommen werden?",
 			"Cancel": "Abbrechen"
 		}
 	}

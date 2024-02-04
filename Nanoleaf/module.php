@@ -22,15 +22,30 @@ class Nanoleaf extends IPSModule
     private const ATTR_SERIAL_NO        = 'serialNo';
 
 
-    private const VAR_IDENT_COLOR      = 'color';
-    private const VAR_IDENT_HUE        = 'hue';
-    private const VAR_IDENT_SATURATION = 'saturation';
-    private const VAR_IDENT_BRIGHTNESS = 'Brightness';
+    private const VAR_IDENT_STATE            = 'State';
+    private const VAR_IDENT_COLOR            = 'color';
+    private const VAR_IDENT_HUE              = 'hue';
+    private const VAR_IDENT_SATURATION       = 'saturation';
+    private const VAR_IDENT_BRIGHTNESS       = 'Brightness';
+    private const VAR_IDENT_COLORTEMPERATURE = 'colortemperature';
+    private const VAR_IDENT_EFFECT           = 'effect';
 
     private const TIMER_UPDATE = 'NanoleafTimerUpdate';
 
     private const HTTP_PREFIX = 'http://';
     private const MOCK_FILE   = __DIR__ . '/../Testdaten/Mocks';
+
+    private const DEFAULT_EFFECT_ASSOZIATIONS = [
+        [1, 'Color Burst', 'Light', -1],
+        [2, 'Flames', 'Light', -1],
+        [3, 'Forest', 'Light', -1],
+        [4, 'Inner Peace', 'Light', -1],
+        [5, 'Nemo', 'Light', -1],
+        [6, 'Northern Lights', 'Light', -1],
+        [7, 'Romantic', 'Light', -1],
+        [8, 'Snowfall', 'Light', -1],
+    ];
+
 
     public function Create(): void
     {
@@ -65,10 +80,10 @@ class Nanoleaf extends IPSModule
         $this->ValidateConfiguration();
     }
 
-    protected function ValidateConfiguration(): void
+    private function ValidateConfiguration(): void
     {
-        $this->RegisterVariableBoolean('State', $this->Translate('state'), '~Switch', 1);
-        $this->EnableAction('State');
+        $this->RegisterVariableBoolean(self::VAR_IDENT_STATE, $this->Translate('state'), '~Switch', 1);
+        $this->EnableAction(self::VAR_IDENT_STATE);
         $this->RegisterVariableInteger(self::VAR_IDENT_COLOR, $this->Translate('color'), '~HexColor', 2); // Color Hex, integer
         $this->EnableAction(self::VAR_IDENT_COLOR);
         $this->RegisterProfileInteger('Nanoleaf.Hue', 'Light', '', '', 0, 359, 1, 0);
@@ -80,13 +95,18 @@ class Nanoleaf extends IPSModule
         $this->EnableAction(self::VAR_IDENT_BRIGHTNESS);
 
         $this->RegisterProfileInteger('Nanoleaf.Colortemperature', 'Light', '', '', 1200, 6500, 100, 0);
-        $this->RegisterVariableInteger('colortemperature', $this->Translate('ct'), 'Nanoleaf.Colortemperature', 6); // "max" : 6500, "min" : 1200
-        $this->EnableAction('colortemperature');
-        $effectass = $this->GetEffectArray();
-        $this->RegisterProfileIntegerAss('Nanoleaf.Effect' . $this->InstanceID, 'Light', '', '', 1, 8, 0, 0, $effectass);
-        $this->RegisterVariableInteger('effect', $this->Translate('effect'), 'Nanoleaf.Effect' . $this->InstanceID, 7);
-        $this->EnableAction('effect');
-        $this->SetValue('effect', 1);
+        $this->RegisterVariableInteger(
+            self::VAR_IDENT_COLORTEMPERATURE,
+            $this->Translate('ct'),
+            'Nanoleaf.Colortemperature',
+            6
+        ); // "max" : 6500, "min" : 1200
+        $this->EnableAction(self::VAR_IDENT_COLORTEMPERATURE);
+
+        $this->RegisterProfileIntegerAss('Nanoleaf.Effect' . $this->InstanceID, 'Light', '', '', 1, 8, 0, 0, $this->getEffectArray());
+        $this->RegisterVariableInteger(self::VAR_IDENT_EFFECT, $this->Translate('effect'), 'Nanoleaf.Effect' . $this->InstanceID, 7);
+        $this->EnableAction(self::VAR_IDENT_EFFECT);
+        $this->SetValue(self::VAR_IDENT_EFFECT, 1);
 
         $this->SetSummary(
             sprintf(
@@ -126,102 +146,95 @@ class Nanoleaf extends IPSModule
         $this->SetTimerInterval(self::TIMER_UPDATE, $interval);
     }
 
-    public function UpdateEffectProfile(): array
+    private function updateEffectProfile(): void
     {
-        $effectass = $this->GetEffectArray();
-        if (IPS_VariableProfileExists('Nanoleaf.Effect' . $this->InstanceID)) {
-            foreach ($effectass as $Association) {
+        $effectAssociations = $this->getEffectArray();
+        $profileName        = 'Nanoleaf.Effect' . $this->InstanceID;
+        if (IPS_VariableProfileExists($profileName)) {
+            foreach ($effectAssociations as [$index, $name, $icon, $color]) {
                 IPS_SetVariableProfileAssociation(
-                    'Nanoleaf.Effect' . $this->InstanceID,
-                    $Association[0],
-                    $Association[1],
-                    $Association[2],
-                    $Association[3]
+                    $profileName,
+                    $index,
+                    $name,
+                    $icon,
+                    $color
                 );
             }
         }
-        return $effectass;
     }
 
-    private function GetEffectArray(): array
+    private function getEffectAssociationsFromList($list): array
     {
-        $effectass = [
-            [1, 'Color Burst', 'Light', -1],
-            [2, 'Flames', 'Light', -1],
-            [3, 'Forest', 'Light', -1],
-            [4, 'Inner Peace', 'Light', -1],
-            [5, 'Nemo', 'Light', -1],
-            [6, 'Northern Lights', 'Light', -1],
-            [7, 'Romantic', 'Light', -1],
-            [8, 'Snowfall', 'Light', -1],
-        ];
-        $host      = $this->ReadPropertyString(self::PROP_HOST);
-        if ($host !== '') {
-            $effectlist = $this->ListEffect();
-            if ($effectlist) {
-                $list = json_decode($effectlist, true);
-            } else {
-                $list = [];
-            }
-            $effectass = [];
-            foreach ($list as $key => $effect) {
-                $position    = $key + 1;
-                $effectass[] = [$position, $effect, 'Light', -1];
-            }
+        $effectAssociations = [];
+        foreach ($list as $key => $effect) {
+            $position             = $key + 1;
+            $effectAssociations[] = [$position, $effect, 'Light', -1];
+        }
+        return $effectAssociations;
+    }
+
+    private function getEffectArray(): array
+    {
+        if ($this->GetStatus() == IS_ACTIVE) {
+            return self::DEFAULT_EFFECT_ASSOZIATIONS;
         }
 
-        return $effectass;
+        $effectlist = $this->ListEffect();
+        if ($effectlist) {
+            $list = json_decode($effectlist, true, 512, JSON_THROW_ON_ERROR);
+        } else {
+            $list = [];
+        }
+
+        return $this->getEffectAssociationsFromList($list);
     }
 
-    public function GetAllInfo()
+    public function GetAllInfo(): false|array
     {
+        if ($this->GetStatus() !== IS_ACTIVE) {
+            return false;
+        }
+
         $payload = ['command' => 'GetAllInfo'];
         if (file_exists(self::MOCK_FILE)) {
             $jsonContent = file_get_contents(self::MOCK_FILE);
 
-            $info = json_decode($jsonContent, true)['GetAllInfo_response'];
+            $info = json_decode($jsonContent, true, 512, JSON_THROW_ON_ERROR)['GetAllInfo_response'];
             $this->SendDebug('TEST', sprintf('%s: %s', 'GetAllInfo_response', $info), 0);
         } else {
             $info = $this->SendCommand($payload);
         }
 
-        if ($info) {
-            $data            = json_decode($info, false);
-            $name            = $data->name;
-            $serialNo        = $data->serialNo;
-            $firmwareVersion = $data->firmwareVersion;
-            $model           = $data->model;
+        $data            = json_decode($info, false, 512, JSON_THROW_ON_ERROR);
+        $serialNo        = $data->serialNo;
+        $firmwareVersion = $data->firmwareVersion;
+        $model           = $data->model;
+        $state           = $data->state->on->value;
+        $brightness      = $data->state->brightness->value;
+        $hue             = $data->state->hue->value;
+        $sat             = $data->state->sat->value;
+        $ct              = $data->state->ct->value;
+        $colormode       = $data->state->colorMode;
 
-            $state      = $data->state->on->value;
-            $brightness = $data->state->brightness->value;
-            $hue        = $data->state->hue->value;
-            $sat        = $data->state->sat->value;
-            $ct         = $data->state->ct->value;
-            $colormode  = $data->state->colorMode;
+        $this->SetValue(self::VAR_IDENT_STATE, $state);
+        $this->SetValue(self::VAR_IDENT_BRIGHTNESS, $brightness);
+        $this->SetValue(self::VAR_IDENT_HUE, $hue);
+        $this->SetValue(self::VAR_IDENT_SATURATION, $sat);
+        $this->SetValueColor();
+        $this->SetValue(self::VAR_IDENT_COLORTEMPERATURE, $ct);
 
-            $this->SetValue('State', $state);
-            $this->SetValue(self::VAR_IDENT_BRIGHTNESS, $brightness);
-            $this->SetValue(self::VAR_IDENT_HUE, $hue);
-            $this->SetValue(self::VAR_IDENT_SATURATION, $sat);
-            $this->SetValueColor();
-            $this->SetValue('colortemperature', $ct);
+        return [
+            'serialnumber' => $serialNo,
+            'firmware'     => $firmwareVersion,
+            'model'        => $model,
+            'state'        => $state,
+            'brightness'   => $brightness,
+            'hue'          => $hue,
+            'sat'          => $sat,
+            'ct'           => $ct,
+            'colormode'    => $colormode
+        ];
 
-            return [
-                'name'         => $name,
-                'serialnumber' => $serialNo,
-                'firmware'     => $firmwareVersion,
-                'model'        => $model,
-                'state'        => $state,
-                'brightness'   => $brightness,
-                'hue'          => $hue,
-                'sat'          => $sat,
-                'ct'           => $ct,
-                'colormode'    => $colormode
-            ];
-        }
-
-        $this->SendDebug(__FUNCTION__, 'Failed', 0);
-        return false; // could not get Info, Token not set
     }
 
     private function getToken(): void
@@ -244,7 +257,7 @@ class Nanoleaf extends IPSModule
         if (file_exists(self::MOCK_FILE)) {
             $jsonContent = file_get_contents(self::MOCK_FILE);
 
-            $token_response = json_decode($jsonContent, true)['token_response'];
+            $token_response = json_decode($jsonContent, true, 512, JSON_THROW_ON_ERROR)['token_response'];
             //$token_response ='';
             $this->SendDebug('TEST', sprintf('%s: %s', 'token_response', $token_response), 0);
         } else {
@@ -260,16 +273,16 @@ class Nanoleaf extends IPSModule
 
             return;
         }
-        $newToken = json_decode($token_response, true)['auth_token'];
+        $newToken = json_decode($token_response, true, 512, JSON_THROW_ON_ERROR)['auth_token'];
         $this->SendDebug('Received Token:', $newToken, 0);
         $this->WriteAttributeString(self::ATTR_NEW_TOKEN, $newToken);
 
-        $this->UpdateFormField('TokenTitle', 'caption', sprintf('Received Token: %s', $newToken));
-        $this->UpdateFormField('TokenText', 'caption', 'Should the token be used?');
+        $this->UpdateFormField('TokenTitle', 'caption', sprintf($this->Translate('Received Token: %s'), $newToken));
+        $this->UpdateFormField('TokenText', 'caption', $this->Translate('Should the token be used?'));
         $this->UpdateFormField('TokenBox', 'visible', true);
     }
 
-    private function saveToken()
+    private function saveToken(): void
     {
         $newToken = $this->ReadAttributeString(self::ATTR_NEW_TOKEN);
         $this->WriteAttributeString(self::ATTR_TOKEN, $newToken);
@@ -282,7 +295,7 @@ class Nanoleaf extends IPSModule
         $this->ReloadForm();
     }
 
-    private function SendCommand($payload)
+    private function SendCommand($payload): bool|string
     {
         $command      = $payload['command'];
         $commandvalue = $payload['commandvalue'] ?? '';
@@ -342,7 +355,7 @@ class Nanoleaf extends IPSModule
             $url         .= 'effects';
             $postfields  = '{"select":"' . $commandvalue . '"}';
             $requesttype = 'PUT';
-        } elseif ($command === 'GetEffect') {
+        } elseif ($command === 'GetEffects') {
             $url         .= 'effects/select';
             $requesttype = 'GET';
         } elseif ($command === 'List') {
@@ -350,7 +363,7 @@ class Nanoleaf extends IPSModule
             $requesttype = 'GET';
         } elseif ($command === 'Random') {
             $url         .= 'effects';
-            $result      = json_decode(Sys_GetURLContent($url . 'effects/effectsList'), true);
+            $result      = json_decode(Sys_GetURLContent($url . 'effects/effectsList'), true, 512, JSON_THROW_ON_ERROR);
             $postfields  = '{"select":"' . $result[array_rand($result)] . '"}';
             $requesttype = 'PUT';
         } elseif ($command === 'GetAllInfo') {
@@ -386,7 +399,7 @@ class Nanoleaf extends IPSModule
         }
         $result = curl_exec($ch);
         curl_close($ch);
-        $this->SendDebug('Nanoleaf Command Response: ', json_encode($result), 0);
+        $this->SendDebug('Nanoleaf Command Response: ', json_encode($result, JSON_THROW_ON_ERROR), 0);
 
         return $result;
     }
@@ -395,43 +408,26 @@ class Nanoleaf extends IPSModule
     {
         $payload    = ['command' => 'GetState'];
         $state_json = $this->SendCommand($payload);
-        $state      = json_decode($state_json, true)['value'];
-        $this->SetValue('State', $state);
+        $state      = json_decode($state_json, true, 512, JSON_THROW_ON_ERROR)['value'];
+        $this->SetValue(self::VAR_IDENT_STATE, $state);
 
         return $state;
     }
 
-    public function On()
+    /**
+     * Switch the state of the device
+     *
+     * @param bool $state
+     */
+    private function setState(bool $state): void
     {
-        $payload = ['command' => 'On'];
-        $result  = $this->SendCommand($payload);
-        $this->SetValue('State', true);
-
-        return $result;
-    }
-
-    public function Off()
-    {
-        $payload = ['command' => 'Off'];
-        $result  = $this->SendCommand($payload);
-        $this->SetValue('State', false);
-
-        return $result;
-    }
-
-    public function Toggle()
-    {
-        $state = $this->GetValue('State');
-        if ($state) {
-            $result = $this->Off();
-        } else {
-            $result = $this->On();
+        $payload = ['command' => $state ? 'On' : 'Off'];
+        if ($this->SendCommand($payload)) {
+            $this->SetValue(self::VAR_IDENT_STATE, $state);
         }
-
-        return $result;
     }
 
-    public function SetColor(int $value): void
+    private function setColor(int $value): void
     {
         $this->SendDebug(__FUNCTION__, sprintf('value: %s', $value), 0);
         $this->SetValue(self::VAR_IDENT_COLOR, $value);
@@ -439,9 +435,9 @@ class Nanoleaf extends IPSModule
         $hex = str_pad(dechex($value), 6, '0', STR_PAD_LEFT);
         $hsv = $this->HEX2HSV($hex);
 
-        $this->SetHue($hsv['h']);
-        $this->SetSaturation($hsv['s']);
-        $this->SetBrightness($hsv['v']);
+        $this->setHue($hsv['h']);
+        $this->setSaturation($hsv['s']);
+        $this->setBrightness($hsv['v']);
     }
 
     private function GetHSB(): array
@@ -515,21 +511,14 @@ class Nanoleaf extends IPSModule
 
     private function computeRGB($i, $v, $k, $m, $n): array
     {
-        switch ($i) {
-            case 0:
-                return [$v, $k, $m];
-            case 1:
-                return [$n, $v, $m];
-            case 2:
-                return [$m, $v, $k];
-            case 3:
-                return [$m, $n, $v];
-            case 4:
-                return [$k, $m, $v];
-            case 5:
-            default:
-                return [$v, $m, $n];
-        }
+        return match ($i) {
+            0 => [$v, $k, $m],
+            1 => [$n, $v, $m],
+            2 => [$m, $v, $k],
+            3 => [$m, $n, $v],
+            4 => [$k, $m, $v],
+            default => [$v, $m, $n],
+        };
     }
 
     private function HSV2RGB(int $h, float $s, float $v): array
@@ -560,7 +549,7 @@ class Nanoleaf extends IPSModule
         $this->SetValue(self::VAR_IDENT_COLOR, hexdec($hex));
     }
 
-    private function SetBrightness(int $brightness)
+    private function setBrightness(int $brightness)
     {
         $payload = ['command' => 'SetBrightness', 'commandvalue' => $brightness];
         $result  = $this->SendCommand($payload);
@@ -570,7 +559,7 @@ class Nanoleaf extends IPSModule
         return $result;
     }
 
-    private function SetHue(int $hue)
+    private function setHue(int $hue)
     {
         $payload = ['command' => 'SetHue', 'commandvalue' => $hue];
         $result  = $this->SendCommand($payload);
@@ -580,7 +569,7 @@ class Nanoleaf extends IPSModule
         return $result;
     }
 
-    private function SetSaturation(int $sat)
+    private function setSaturation(int $sat)
     {
         $payload = ['command' => 'SetSaturation', 'commandvalue' => $sat];
         $result  = $this->SendCommand($payload);
@@ -590,11 +579,11 @@ class Nanoleaf extends IPSModule
         return $result;
     }
 
-    public function SetColortemperature(int $ct)
+    private function setColortemperature(int $ct)
     {
         $payload = ['command' => 'SetColortemperature', 'commandvalue' => $ct];
         $result  = $this->SendCommand($payload);
-        $this->SetValue('colortemperature', $ct);
+        $this->SetValue(self::VAR_IDENT_COLORTEMPERATURE, $ct);
 
         return $result;
     }
@@ -603,8 +592,8 @@ class Nanoleaf extends IPSModule
     {
         $payload = ['command' => 'GetColortemperature'];
         $ct_json = $this->SendCommand($payload);
-        $ct      = json_decode($ct_json, true)['value'];
-        $this->SetValue('colortemperature', $ct);
+        $ct      = json_decode($ct_json, true, 512, JSON_THROW_ON_ERROR)['value'];
+        $this->SetValue(self::VAR_IDENT_COLORTEMPERATURE, $ct);
 
         return $ct;
     }
@@ -627,9 +616,9 @@ class Nanoleaf extends IPSModule
             trigger_error(sprintf('No effect with name %s found in profile Nanoleaf.Effect%s', $effectName, $this->InstanceID), E_USER_ERROR);
         }
 
-        $this->SendDebug(__FUNCTION__, sprintf('effects: %s, selected: %s', json_encode($effects), $effectNumber), 0);
+        $this->SendDebug(__FUNCTION__, sprintf('effects: %s, selected: %s', json_encode($effects, JSON_THROW_ON_ERROR), $effectNumber), 0);
 
-        $this->SetValue('effect', $effectNumber);
+        $this->SetValue(self::VAR_IDENT_EFFECT, $effectNumber);
 
         return $result;
     }
@@ -644,7 +633,7 @@ class Nanoleaf extends IPSModule
         return null;
     }
 
-    private function SelectEffectInt(int $effect) // "Color Burst","Flames","Forest","Inner Peace","Nemo","Northern Lights","Romantic","Snowfall"
+    private function setEffect(int $effect) // "Color Burst","Flames","Forest","Inner Peace","Nemo","Northern Lights","Romantic","Snowfall"
     {
         $effectName = $this->findEffectName($effect);
 
@@ -665,9 +654,9 @@ class Nanoleaf extends IPSModule
         return null;
     }
 
-    public function GetEffect()
+    public function GetEffects()
     {
-        $payload = ['command' => 'GetEffect'];
+        $payload = ['command' => 'GetEffects'];
         return $this->SendCommand($payload);
     }
 
@@ -684,11 +673,9 @@ class Nanoleaf extends IPSModule
             return;
         }
 
-        $name            = $info['name'];
         $serialNo        = $info['serialnumber'];
         $firmwareVersion = $info['firmware'];
         $model           = $info['model'];
-        $this->SendDebug('Nanoleaf:', 'name: ' . $name, 0);
         $this->WriteAttributeString(self::ATTR_SERIAL_NO, $serialNo);
         $this->SendDebug('Nanoleaf:', 'serial number: ' . $serialNo, 0);
         $this->WriteAttributeString(self::ATTR_FIRMWARE_VERSION, $firmwareVersion);
@@ -701,7 +688,7 @@ class Nanoleaf extends IPSModule
     {
         $payload                 = ['command' => 'GetGlobalOrientation'];
         $global_orientation_json = $this->SendCommand($payload);
-        return json_decode($global_orientation_json, true)['value'];
+        return json_decode($global_orientation_json, true, 512, JSON_THROW_ON_ERROR)['value'];
     }
 
     public function SetGlobalOrientation(int $orientation)
@@ -725,36 +712,35 @@ class Nanoleaf extends IPSModule
     public function RequestAction($Ident, $Value): void
     {
         switch ($Ident) {
-            case 'State':
-                if ($Value === true) {
-                    $this->On();
-                } else {
-                    $this->Off();
-                }
+            case self::VAR_IDENT_STATE:
+                $this->setState($Value);
                 break;
             case self::VAR_IDENT_COLOR:
-                $this->SetColor($Value);
+                $this->setColor($Value);
                 break;
-            case 'Brightness':
-                $this->SetBrightness($Value);
+            case self::VAR_IDENT_BRIGHTNESS:
+                $this->setBrightness($Value);
                 break;
-            case 'hue':
-                $this->SetHue($Value);
+            case self::VAR_IDENT_HUE:
+                $this->setHue($Value);
                 break;
-            case 'saturation':
-                $this->SetSaturation($Value);
+            case self::VAR_IDENT_SATURATION:
+                $this->setSaturation($Value);
                 break;
-            case 'colortemperature':
-                $this->SetColortemperature($Value);
+            case self::VAR_IDENT_COLORTEMPERATURE:
+                $this->setColortemperature($Value);
                 break;
-            case 'effect':
-                $this->SelectEffectInt($Value);
+            case self::VAR_IDENT_EFFECT:
+                $this->setEffect($Value);
                 break;
-            case 'btnAuthorization':
+            case 'btnGetToken':
                 $this->getToken();
                 break;
             case 'btnSaveToken':
                 $this->saveToken();
+                break;
+            case 'btnUpdateEffectProfile':
+                $this->updateEffectProfile();
                 break;
             default:
                 throw new RuntimeException('Invalid ident');
@@ -774,13 +760,13 @@ class Nanoleaf extends IPSModule
 
         IPS_SetVariableProfileIcon($Name, $Icon);
         IPS_SetVariableProfileText($Name, $Prefix, $Suffix);
-        IPS_SetVariableProfileDigits($Name, $Digits); //  Nachkommastellen
+        IPS_SetVariableProfileDigits($Name, $Digits);
         IPS_SetVariableProfileValues(
             $Name,
             $MinValue,
             $MaxValue,
             $StepSize
-        ); // string $ProfilName, float $Minimalwert, float $Maximalwert, float $Schrittweite
+        );
     }
 
     private function RegisterProfileIntegerAss($Name, $Icon, $Prefix, $Suffix, $MinValue, $MaxValue, $Stepsize, $Digits, $Associations): void
@@ -789,13 +775,7 @@ class Nanoleaf extends IPSModule
             $MinValue = 0;
             $MaxValue = 0;
         }
-        /*
-        else {
-            //undefined offset
-            $MinValue = $Associations[0][0];
-            $MaxValue = $Associations[sizeof($Associations)-1][0];
-        }
-        */
+
         $this->RegisterProfileInteger($Name, $Icon, $Prefix, $Suffix, $MinValue, $MaxValue, $Stepsize, $Digits);
 
         //boolean IPS_SetVariableProfileAssociation ( string $ProfilName, float $Wert, string $Name, string $Icon, integer $Farbe )
@@ -804,43 +784,6 @@ class Nanoleaf extends IPSModule
         }
     }
 
-    protected function RegisterProfileFloat($Name, $Icon, $Prefix, $Suffix, $MinValue, $MaxValue, $StepSize, $Digits): void
-    {
-        if (!IPS_VariableProfileExists($Name)) {
-            IPS_CreateVariableProfile($Name, VARIABLETYPE_FLOAT);
-        } else {
-            $profile = IPS_GetVariableProfile($Name);
-            if ($profile['ProfileType'] !== VARIABLETYPE_FLOAT) {
-                throw new RuntimeException('Variable profile type does not match for profile ' . $Name);
-            }
-        }
-
-        IPS_SetVariableProfileIcon($Name, $Icon);
-        IPS_SetVariableProfileText($Name, $Prefix, $Suffix);
-        IPS_SetVariableProfileDigits($Name, $Digits); //  Nachkommastellen
-        IPS_SetVariableProfileValues($Name, $MinValue, $MaxValue, $StepSize);
-    }
-
-    protected function RegisterProfileFloatAss($Name, $Icon, $Prefix, $Suffix, $MinValue, $MaxValue, $Stepsize, $Digits, $Associations): void
-    {
-        if (count($Associations) === 0) {
-            $MinValue = 0;
-            $MaxValue = 0;
-        }
-        /*
-        else {
-        //undefined offset
-        $MinValue = $Associations[0][0];
-        $MaxValue = $Associations[sizeof($Associations)-1][0];
-        }
-        */
-        $this->RegisterProfileFloat($Name, $Icon, $Prefix, $Suffix, $MinValue, $MaxValue, $Stepsize, $Digits);
-
-        //boolean IPS_SetVariableProfileAssociation ( string $ProfilName, float $Wert, string $Name, string $Icon, integer $Farbe )
-        foreach ($Associations as $Association) {
-            IPS_SetVariableProfileAssociation($Name, $Association[0], $Association[1], $Association[2], $Association[3]);
-        }
-    }
 
     /***********************************************************
      * Configuration Form
@@ -850,21 +793,20 @@ class Nanoleaf extends IPSModule
      * build configuration form.
      *
      * @return string
+     * @throws \JsonException
      */
     public function GetConfigurationForm(): string
     {
         // return current form
-        return json_encode(
-            [
-                'elements' => $this->FormElements(),
-                'actions'  => $this->FormActions(),
-                'status'   => $this->FormStatus(),
-            ]
-        );
+        return json_encode([
+                               'elements' => $this->FormElements(),
+                               'actions'  => $this->FormActions(),
+                               'status'   => $this->FormStatus(),
+                           ], JSON_THROW_ON_ERROR);
     }
 
     /**
-     * return form configurations on configuration step.
+     * return form elements
      *
      * @return array
      */
@@ -995,7 +937,6 @@ class Nanoleaf extends IPSModule
      */
     private function FormActions(): array
     {
-        //$tokenNotSet = $this->ReadAttributeString(self::ATTR_TOKEN) !== '';
         $tokenNotSet = $this->GetStatus() === self::STATUS_INST_TOKEN_NOT_SET;
         $isActive    = $this->GetStatus() === IS_ACTIVE;
         return [
@@ -1012,7 +953,7 @@ class Nanoleaf extends IPSModule
             [
                 'type'    => 'Button',
                 'caption' => 'Get Token',
-                'onClick' => 'IPS_RequestAction($id, "btnAuthorization", "");',
+                'onClick' => 'IPS_RequestAction($id, "btnGetToken", "");',
                 'visible' => $tokenNotSet
             ],
             [
@@ -1024,7 +965,7 @@ class Nanoleaf extends IPSModule
             [
                 'type'    => 'Button',
                 'caption' => 'Update Effects',
-                'onClick' => 'Nanoleaf_UpdateEffectProfile($id);',
+                'onClick' => 'IPS_RequestAction($id, "btnUpdateEffectProfile", "");',
                 'visible' => $isActive
             ],
             [
@@ -1035,7 +976,7 @@ class Nanoleaf extends IPSModule
     }
 
     /**
-     * return from status.
+     * return form status.
      *
      * @return array
      */
