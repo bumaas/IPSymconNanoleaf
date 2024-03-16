@@ -35,7 +35,7 @@ class Nanoleaf extends IPSModule
     private const HTTP_PREFIX = 'http://';
     private const MOCK_FILE   = __DIR__ . '/../Testdaten/Mocks';
 
-    private const DEFAULT_EFFECT_ASSOZIATIONS = [
+    private const DEFAULT_EFFECT_ASSOCIATIONS = [
         [1, 'Color Burst', 'Light', -1],
         [2, 'Flames', 'Light', -1],
         [3, 'Forest', 'Light', -1],
@@ -103,7 +103,7 @@ class Nanoleaf extends IPSModule
         ); // "max" : 6500, "min" : 1200
         $this->EnableAction(self::VAR_IDENT_COLORTEMPERATURE);
 
-        $this->RegisterProfileIntegerAss('Nanoleaf.Effect' . $this->InstanceID, 'Light', '', '', 1, 8, 0, 0, $this->getEffectArray());
+        $this->RegisterProfileIntegerAss('Nanoleaf.Effect' . $this->InstanceID, 'Light', '', '', 1, 8, 0, 0, $this->getEffectAssociations());
         $this->RegisterVariableInteger(self::VAR_IDENT_EFFECT, $this->Translate('effect'), 'Nanoleaf.Effect' . $this->InstanceID, 7);
         $this->EnableAction(self::VAR_IDENT_EFFECT);
         $this->SetValue(self::VAR_IDENT_EFFECT, 1);
@@ -148,7 +148,7 @@ class Nanoleaf extends IPSModule
 
     private function updateEffectProfile(): void
     {
-        $effectAssociations = $this->getEffectArray();
+        $effectAssociations = $this->getEffectAssociations();
         $profileName        = 'Nanoleaf.Effect' . $this->InstanceID;
         if (IPS_VariableProfileExists($profileName)) {
             foreach ($effectAssociations as [$index, $name, $icon, $color]) {
@@ -173,13 +173,15 @@ class Nanoleaf extends IPSModule
         return $effectAssociations;
     }
 
-    private function getEffectArray(): array
+    private function getEffectAssociations(): array
     {
-        if ($this->GetStatus() == IS_ACTIVE) {
-            return self::DEFAULT_EFFECT_ASSOZIATIONS;
+        if ($this->GetStatus() !== IS_ACTIVE) {
+            return self::DEFAULT_EFFECT_ASSOCIATIONS;
         }
 
         $effectlist = $this->ListEffect();
+        $this->SendDebug(__FUNCTION__, sprintf('effectList: %s', $effectlist), 0);
+
         if ($effectlist) {
             $list = json_decode($effectlist, true, 512, JSON_THROW_ON_ERROR);
         } else {
@@ -418,6 +420,8 @@ class Nanoleaf extends IPSModule
      * Switch the state of the device
      *
      * @param bool $state
+     *
+     * @throws \JsonException
      */
     private function setState(bool $state): void
     {
@@ -549,43 +553,39 @@ class Nanoleaf extends IPSModule
         $this->SetValue(self::VAR_IDENT_COLOR, hexdec($hex));
     }
 
-    private function setBrightness(int $brightness)
+    private function setBrightness(int $brightness): void
     {
         $payload = ['command' => 'SetBrightness', 'commandvalue' => $brightness];
-        $result  = $this->SendCommand($payload);
-        $this->SetValue(self::VAR_IDENT_BRIGHTNESS, $brightness);
-        $this->SetValueColor();
-
-        return $result;
+        if ($this->SendCommand($payload)){
+            $this->SetValue(self::VAR_IDENT_BRIGHTNESS, $brightness);
+            $this->SetValueColor();
+        }
     }
 
-    private function setHue(int $hue)
+    private function setHue(int $hue): void
     {
         $payload = ['command' => 'SetHue', 'commandvalue' => $hue];
-        $result  = $this->SendCommand($payload);
-        $this->SetValue(self::VAR_IDENT_HUE, $hue);
-        $this->SetValueColor();
-
-        return $result;
+        if ($this->SendCommand($payload)){
+            $this->SetValue(self::VAR_IDENT_HUE, $hue);
+            $this->SetValueColor();
+        }
     }
 
-    private function setSaturation(int $sat)
+    private function setSaturation(int $sat): void
     {
         $payload = ['command' => 'SetSaturation', 'commandvalue' => $sat];
-        $result  = $this->SendCommand($payload);
-        $this->SetValue(self::VAR_IDENT_SATURATION, $sat);
-        $this->SetValueColor();
-
-        return $result;
+        if ($this->SendCommand($payload)) {
+            $this->SetValue(self::VAR_IDENT_SATURATION, $sat);
+            $this->SetValueColor();
+        }
     }
 
-    private function setColortemperature(int $ct)
+    private function setColortemperature(int $ct): void
     {
         $payload = ['command' => 'SetColortemperature', 'commandvalue' => $ct];
-        $result  = $this->SendCommand($payload);
-        $this->SetValue(self::VAR_IDENT_COLORTEMPERATURE, $ct);
-
-        return $result;
+        if ($this->SendCommand($payload)) {
+            $this->SetValue(self::VAR_IDENT_COLORTEMPERATURE, $ct);
+        }
     }
 
     public function GetColortemperature()
@@ -711,6 +711,7 @@ class Nanoleaf extends IPSModule
 
     public function RequestAction($Ident, $Value): void
     {
+        $this->SendDebug(__FUNCTION__, sprintf('Ident: %s, $Value: %s', $Ident, $Value), 0);
         switch ($Ident) {
             case self::VAR_IDENT_STATE:
                 $this->setState($Value);
