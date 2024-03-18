@@ -34,7 +34,7 @@ class NanoleafDiscovery extends IPSModule
 
         $devices = $this->DiscoverDevices();
         if (!empty($devices)) {
-            $this->WriteAttributeString('devices', json_encode($devices));
+            $this->WriteAttributeString('devices', json_encode($devices, JSON_THROW_ON_ERROR));
         }
 
         // Status Error Kategorie zum Import auswählen
@@ -56,7 +56,7 @@ class NanoleafDiscovery extends IPSModule
 
                     $devices = $this->DiscoverDevices();
                     if (!empty($devices)) {
-                        $this->WriteAttributeString('devices', json_encode($devices));
+                        $this->WriteAttributeString('devices', json_encode($devices, JSON_THROW_ON_ERROR));
                     }
                 }
                 break;
@@ -71,12 +71,14 @@ class NanoleafDiscovery extends IPSModule
      * Liefert alle Geräte.
      *
      * @return array configlist all devices
+     * @throws \JsonException
+     * @throws \JsonException
      */
     private function Get_ListConfiguration(): array
     {
         $DeviceIDList = IPS_GetInstanceListByModuleID(self::MODID_NANOLEAF);
         $devices      = $this->DiscoverDevices();
-        $this->SendDebug('Nanoleaf discovered devices', json_encode($devices), 0);
+        $this->SendDebug(__FUNCTION__, 'devices: ' . json_encode($devices, JSON_THROW_ON_ERROR), 0);
         if (!empty($devices)) {
             $config_list  = [];
             foreach ($devices as $device) {
@@ -89,7 +91,7 @@ class NanoleafDiscovery extends IPSModule
                 foreach ($DeviceIDList as $DeviceID) {
                     if ($host === IPS_GetProperty($DeviceID, 'host') && $port === IPS_GetProperty($DeviceID, 'port')) {
                         $devicename = IPS_GetName($DeviceID);
-                        $this->SendDebug('Broadlink Config', 'device found: ' . utf8_decode($devicename) . ' (' . $DeviceID . ')', 0);
+                        $this->SendDebug(__FUNCTION__, sprintf('device found: %s (%s)', $devicename, $DeviceID), 0);
                         $instanceID = $DeviceID;
                     }
                 }
@@ -119,8 +121,9 @@ class NanoleafDiscovery extends IPSModule
 
     private function DiscoverDevices(): array
     {
+        $this->SendDebug(__FUNCTION__, 'start mSearch ...', 0);
         $devices = $this->mSearch();
-        $this->SendDebug('Discover Response:', json_encode($devices), 0);
+        $this->SendDebug(__FUNCTION__, 'found devices: ' . json_encode($devices, JSON_THROW_ON_ERROR), 0);
         return $this->CreateDeviceList($devices);
     }
 
@@ -138,7 +141,7 @@ class NanoleafDiscovery extends IPSModule
             $deviceList[]         = $obj;
         }
 
-        $this->SendDebug('deviceList:', json_encode($deviceList), 0);
+        $this->SendDebug(__FUNCTION__, json_encode($deviceList, JSON_THROW_ON_ERROR), 0);
 
         return $deviceList;
     }
@@ -148,6 +151,8 @@ class NanoleafDiscovery extends IPSModule
      * @param string $st
      *
      * @return array
+     * @throws \JsonException
+     * @throws \JsonException
      */
     protected function mSearch(string $st = 'ssdp:all'): array
     {
@@ -156,8 +161,8 @@ class NanoleafDiscovery extends IPSModule
         if (file_exists(self::MOCK_FILE)) {
             $jsonContent = file_get_contents(self::MOCK_FILE);
 
-            $jsondevices = json_decode($jsonContent, true)['devices'];
-            $devices     = json_decode($jsondevices, true);
+            $jsondevices = json_decode($jsonContent, true, 512, JSON_THROW_ON_ERROR)['devices'];
+            $devices     = json_decode($jsondevices, true, 512, JSON_THROW_ON_ERROR);
             $this->SendDebug('TEST', sprintf('%s: %s', 'devices', print_r($devices, true)), 0);
         } else {
             $devices = YC_SearchDevices($ssdp_id, $st);
@@ -199,6 +204,8 @@ class NanoleafDiscovery extends IPSModule
      * build configuration form.
      *
      * @return string
+     * @throws \JsonException
+     * @throws \JsonException
      */
     public function GetConfigurationForm(): string
     {
@@ -207,16 +214,18 @@ class NanoleafDiscovery extends IPSModule
             'actions'  => [],
             'status'   => $this->FormStatus(),
         ];
-        $this->SendDebug('FORM', json_encode($configData), 0);
-        $this->SendDebug('FORM', json_last_error_msg(), 0);
+        $this->SendDebug(__FUNCTION__, 'configData: ' . json_encode($configData, JSON_THROW_ON_ERROR), 0);
+        $this->SendDebug(__FUNCTION__, 'error: ' . json_last_error_msg(), 0);
 
-        return json_encode($configData);
+        return json_encode($configData, JSON_THROW_ON_ERROR);
     }
 
     /**
      * return form configurations on configuration step.
      *
      * @return array
+     * @throws \JsonException
+     * @throws \JsonException
      */
     private function FormElements(): array
     {
