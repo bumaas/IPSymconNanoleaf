@@ -168,6 +168,8 @@ class NanoleafDiscovery extends IPSModule
             $devices = YC_SearchDevices($ssdp_id, $st);
         }
 
+        $this->SendDebug(__FUNCTION__, 'devices: ' . json_encode($devices, JSON_THROW_ON_ERROR), 0);
+
         $nanoleaf_response = [];
         $i                 = 0;
         foreach ($devices as $device) {
