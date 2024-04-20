@@ -103,7 +103,12 @@ class Nanoleaf extends IPSModule
         ); // "max" : 6500, "min" : 1200
         $this->EnableAction(self::VAR_IDENT_COLORTEMPERATURE);
 
-        $this->RegisterProfileIntegerAss('Nanoleaf.Effect' . $this->InstanceID, 'Light', '', '', 1, 8, 0, 0, $this->getEffectAssociations());
+        if (count($this->getEffectAssociations())){
+            $this->RegisterProfileIntegerAss('Nanoleaf.Effect' . $this->InstanceID, 'Light', '', '', 1, 8, 0, 0, $this->getEffectAssociations());
+        } else {
+            $this->RegisterProfileInteger('Nanoleaf.Effect' . $this->InstanceID, 'Light', '', '', 1, 8, 0, 0);
+
+        }
         $this->RegisterVariableInteger(self::VAR_IDENT_EFFECT, $this->Translate('effect'), 'Nanoleaf.Effect' . $this->InstanceID, 7);
         $this->EnableAction(self::VAR_IDENT_EFFECT);
         $this->SetValue(self::VAR_IDENT_EFFECT, 1);
@@ -176,7 +181,8 @@ class Nanoleaf extends IPSModule
     private function getEffectAssociations(): array
     {
         if ($this->GetStatus() !== IS_ACTIVE) {
-            return self::DEFAULT_EFFECT_ASSOCIATIONS;
+            //return self::DEFAULT_EFFECT_ASSOCIATIONS;
+            return [];
         }
 
         $effectlist = $this->ListEffect();
