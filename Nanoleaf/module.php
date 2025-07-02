@@ -213,6 +213,9 @@ class Nanoleaf extends IPSModule
             $info = $this->SendCommand($payload);
         }
 
+        if ($info === false) {
+            return false;
+        }
         $data            = json_decode($info, false, 512, JSON_THROW_ON_ERROR);
         $serialNo        = $data->serialNo;
         $firmwareVersion = $data->firmwareVersion;

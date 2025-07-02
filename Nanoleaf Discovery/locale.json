@@ -1,20 +1,21 @@
 {
   "translations": {
     "de": {
-      "device name": "Geräte Name",
-      "manufacturer": "Hersteller",
-      "type": "Typ",
-      "device id": "Geräte ID",
-      "devices": "Geräte",
-      "IP address": "IP Adresse",
-      "port": "Port",
-      "uuid": "uuid",
-      "Nanoleaf devices": "Nanoleaf Geräte",
-      "Refresh list": "Liste aktualisieren",
-      "Read configuration": "Konfiguration auslesen",
-      "Add Device:": "Gerät hinzufügen:",
-      "device name:": "Geräte Name:",
-      "Please follow the instructions.": "Bitte den Anleitung folgen."
+      "device name":                                                                     "Geräte Name",
+      "manufacturer":                                                                    "Hersteller",
+      "type":                                                                            "Typ",
+      "device id":                                                                       "Geräte ID",
+      "devices":                                                                         "Geräte",
+      "IP address":                                                                      "IP Adresse",
+      "port":                                                                            "Port",
+      "uuid":                                                                            "uuid",
+      "Nanoleaf devices":                                                                "Nanoleaf Geräte",
+      "Refresh list":                                                                    "Liste aktualisieren",
+      "Read configuration":                                                              "Konfiguration auslesen",
+      "Add Device:":                                                                     "Gerät hinzufügen:",
+      "device name:":                                                                    "Geräte Name:",
+      "Please follow the instructions.":                                                 "Bitte den Anleitung folgen.",
+      "The configurator is currently searching for devices. This could take a while...": "Der Konfigurator sucht nach Geräten. Einen Moment ..."
     }
   }
 }
