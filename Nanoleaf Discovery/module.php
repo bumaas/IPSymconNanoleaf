@@ -8,7 +8,7 @@ class NanoleafDiscovery extends IPSModule
     private const MODID_SSDP     = '{FFFFA648-B296-E785-96ED-065F7CEE6F29}';
     private const HTTP_PREFIX    = 'http://';
 
-    private const MOCK_FILE = __DIR__ . '/../Testdaten/Mocks';
+    private const MOCK_FILE = __DIR__ . '/../tests/Mocks';
 
     private const BUFFER_DEVICES= 'Devices';
     private const BUFFER_SEARCHACTIVE= 'SearchActive';
@@ -75,14 +75,13 @@ class NanoleafDiscovery extends IPSModule
         }
     }
 
-    public function RequestAction($Ident, $Value): bool
+    public function RequestAction($Ident, $Value): void
     {
         $this->SendDebug(__FUNCTION__, sprintf('Ident: %s, Value: %s', $Ident, $Value), 0);
 
         if ($Ident === 'loadDevices') {
             $this->loadDevices();
         }
-        return true;
     }
 
     /**

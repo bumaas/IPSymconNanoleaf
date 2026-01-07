@@ -33,7 +33,7 @@ class Nanoleaf extends IPSModule
     private const TIMER_UPDATE = 'NanoleafTimerUpdate';
 
     private const HTTP_PREFIX = 'http://';
-    private const MOCK_FILE   = __DIR__ . '/../Testdaten/Mocks';
+    private const MOCK_FILE   = __DIR__ . '/../tests/Mocks';
 
     private const DEFAULT_EFFECT_ASSOCIATIONS = [
         [1, 'Color Burst', 'Light', -1],
