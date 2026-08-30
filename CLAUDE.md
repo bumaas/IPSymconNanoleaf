@@ -55,6 +55,24 @@ gleicher Token-Flow). Die Unterschiede bestimmen an mehreren Stellen den Code:
 | Discovery | SSDP | **kein SSDP**, nur mDNS `_nanoleafapi._tcp` |
 | Token freigeben | Gerätetaste 5–7 s halten | in der Nanoleaf App: Geräteeinstellungen → „Connect to API" (30 s Fenster) |
 
+**Achtung beim Lesen der Einzelendpunkte:** Die Matter-over-WiFi-Geräte betten den Wert in den
+Namen der Eigenschaft ein — `{"on":{"value":false}}`, `{"brightness":{"value":100,"max":100,"min":1}}`,
+`{"colorMode":"ct"}` —, während die Light Panels flach `{"value":…}` bzw. `"ct"` antworten.
+`readValueFromEndpoint()` versteht beide Formen; wer eine neue Leseoperation ergänzt, nutzt sie.
+
+Quellen (Nanoleaf, Confluence `nlapid`):
+
+- Light Panels: <https://nanoleaf.atlassian.net/wiki/spaces/nlapid/pages/2789310530/>
+- Matter over WiFi: <https://nanoleaf.atlassian.net/wiki/spaces/nlapid/pages/2296381472/> —
+  die Antwortkörper stehen dort als Beispiele in den Codeblöcken (in der Web-Ansicht leicht zu
+  übersehen). Die Geräteliste endet bei `NL75K1`; das Ceiling Light `NL77K1` ist **nicht**
+  dokumentiert, verhält sich aber so — mit dem Unterschied, dass es `state` auch aus der
+  Gesamtabfrage weglässt (das Doku-Beispiel für `NL72K1` enthält es noch).
+- Dienste und Ports je Gerätefamilie (Beleg für „kein SSDP"):
+  <https://nanoleaf.atlassian.net/wiki/spaces/nlapid/pages/3410591752/>
+- Anwenderbericht zum NL77K1 mit Rohantworten:
+  <https://github.com/home-assistant/core/issues/178141>
+
 ## Architektur
 
 ### Discovery → Device
