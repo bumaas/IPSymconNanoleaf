@@ -303,23 +303,45 @@ class Nanoleaf extends IPSModule
     }
 
     /**
-     * reads a single value endpoint (e.g. 'state/on'), which answers with {"value": ...}
+     * reads a single value endpoint (e.g. 'state/on'). The answer differs between the device
+     * families: the light panels answer with {"value": …}, the 'Matter over WiFi' devices wrap
+     * the value in the name of the property, e.g. {"on":{"value":false}} or
+     * {"brightness":{"value":100,"max":100,"min":1}}.
      */
     private function readValueFromEndpoint(string $command): mixed
     {
         $data = $this->decodeResponse($command, $this->SendCommand(['command' => $command]));
-        if ($data instanceof stdClass) {
-            return $data->value ?? null;
+        if (!($data instanceof stdClass)) {
+            return null;
+        }
+
+        if (isset($data->value)) {
+            return $data->value;
+        }
+
+        foreach (get_object_vars($data) as $property) {
+            if ($property instanceof stdClass && isset($property->value)) {
+                return $property->value;
+            }
         }
 
         return null;
     }
 
+    /**
+     * 'state/colorMode' answers with a plain string ("ct") or with {"colorMode":"ct"}
+     */
     private function readColorMode(): ?string
     {
         $colormode = $this->decodeResponse('ColorMode', $this->SendCommand(['command' => 'ColorMode']));
+        if (is_string($colormode)) {
+            return $colormode;
+        }
+        if ($colormode instanceof stdClass && isset($colormode->colorMode) && is_string($colormode->colorMode)) {
+            return $colormode->colorMode;
+        }
 
-        return is_string($colormode) ? $colormode : null;
+        return null;
     }
 
     /**
