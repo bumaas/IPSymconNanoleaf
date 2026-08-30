@@ -105,7 +105,17 @@ class Nanoleaf extends IPSModule
 
         $effectAssociations = $this->getEffectAssociations();
         if (count($effectAssociations)) {
-            $this->RegisterProfileIntegerAss('Nanoleaf.Effect' . $this->InstanceID, 'Light', '', '', 1, 8, 0, 0, $effectAssociations);
+            $this->RegisterProfileIntegerAss(
+                'Nanoleaf.Effect' . $this->InstanceID,
+                'Light',
+                '',
+                '',
+                1,
+                count($effectAssociations),
+                0,
+                0,
+                $effectAssociations
+            );
         } else {
             $this->RegisterProfileInteger('Nanoleaf.Effect' . $this->InstanceID, 'Light', '', '', 1, 8, 0, 0);
 
@@ -156,17 +166,28 @@ class Nanoleaf extends IPSModule
     {
         $effectAssociations = $this->getEffectAssociations();
         $profileName        = 'Nanoleaf.Effect' . $this->InstanceID;
-        if (IPS_VariableProfileExists($profileName)) {
-            foreach ($effectAssociations as [$index, $name, $icon, $color]) {
-                IPS_SetVariableProfileAssociation(
-                    $profileName,
-                    $index,
-                    $name,
-                    $icon,
-                    $color
-                );
+        if (!IPS_VariableProfileExists($profileName) || $effectAssociations === []) {
+            return;
+        }
+
+        foreach ($effectAssociations as [$index, $name, $icon, $color]) {
+            IPS_SetVariableProfileAssociation(
+                $profileName,
+                $index,
+                $name,
+                $icon,
+                $color
+            );
+        }
+
+        //Assoziationen, die das Gerät nicht mehr meldet, entfernen (leerer Name löscht sie)
+        foreach (IPS_GetVariableProfile($profileName)['Associations'] as $association) {
+            if ((int)$association['Value'] > count($effectAssociations)) {
+                IPS_SetVariableProfileAssociation($profileName, (int)$association['Value'], '', '', -1);
             }
         }
+
+        IPS_SetVariableProfileValues($profileName, 1, count($effectAssociations), 0);
     }
 
     private function getEffectAssociationsFromList($list): array

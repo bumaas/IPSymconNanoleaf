@@ -40,6 +40,25 @@ umbenennen/entfernen, sonst sieht man ausschließlich Mock-Daten.
 Der Mock deckt nur diese drei Stellen ab: Einzelabfragen wie `state/on` gehen auch im Mock-Betrieb
 per curl ans Gerät.
 
+### Logik ohne Gerät prüfen
+
+Für alles, was der Mock nicht abdeckt, hat sich bewährt, die **Methodenrümpfe per Regex aus
+`module.php` zu ziehen** und in eine Stub-Klasse einzusetzen (`SendDebug` leer, `SendCommand`
+liefert vorgegebene Antwortstrings). So läuft der Test gegen den ausgelieferten Code statt gegen
+eine Kopie und braucht weder Symcon noch ein Gerät:
+
+```php
+preg_match('/
+    private function readValueFromEndpoint\(.*?
+    \}
+/s', $src, $m);
+eval('class NanoleafTest { private function SendDebug($a,$b,$c): void {} … ' . $m[0] . ' }');
+```
+
+Als Prüfdaten eignen sich die Antwortbeispiele aus Nanoleafs Doku (siehe Quellen oben) und die
+Rohantworten aus Debug-Ausgaben von Anwendern — damit fiel auf, dass die beiden Gerätefamilien
+die Werte unterschiedlich verpacken.
+
 ## Zwei API-Familien
 
 Nanoleaf pflegt für die Matter-over-WiFi-Geräte eine **eigene, kleinere OpenAPI** (gleicher Port,
@@ -89,6 +108,8 @@ Die Suche selbst nutzt den **SSDP-Splitter** (`YC_SearchDevices` auf der Instanz
 `nanoleaf_aurora:light`, `nanoleaf:nl29`, `nanoleaf:nl42`. Eine neue Panels-Generation braucht hier
 einen zusätzlichen ST-Eintrag in `mSearch()` — **Matter-over-WiFi-Geräte erreicht man so nicht**,
 sie antworten nicht auf SSDP und werden von Hand angelegt.
+Host und Port stammen aus dem `Location`-Feld der SSDP-Antwort (`GetNanoleafIP()`); das Ergebnis
+der Suche liegt zwischen `loadDevices()` und `CreateDeviceList()` im Buffer `Devices`.
 Zuordnung vorhandener Instanzen im Configurator erfolgt über `host` + `port`, nicht über die UUID.
 
 ### Nanoleaf-Device
@@ -105,6 +126,10 @@ Zuordnung vorhandener Instanzen im Configurator erfolgt über `host` + `port`, n
 - **`GetAllInfo()`** liest `state` defensiv; fehlt das Objekt, werden die sechs Einzelendpunkte
   abgefragt (`readValueFromEndpoint()`, `readColorMode()`). Statusvariablen werden nur bei
   vorhandenem Wert gesetzt, damit ein teilweise antwortendes Gerät keine Werte überschreibt.
+- **Rückgabewerte der Lesefunktionen sind uneinheitlich:** `GetAllInfo()`, `GetState()` und
+  `GetColortemperature()` liefern `false`, wenn das Gerät nichts Verwertbares schickt,
+  `GetGlobalOrientation()` dagegen `null`. Beim Aufruf also nicht auf einen bestimmten Falsy-Wert
+  prüfen.
 - **Token-Flow:** Button `btnGetToken` → `getToken()` POSTet auf `/api/v1/new` → Token landet im
   Attribut `newToken`, ein `PopupAlert` fragt nach → `btnSaveToken` → `saveToken()` schreibt Attribut
   `token`. Das Zeitfenster öffnet je nach Gerät die Taste oder die App (siehe „Zwei API-Familien").
@@ -135,7 +160,10 @@ Zuordnung vorhandener Instanzen im Configurator erfolgt über `host` + `port`, n
   `getEffectAssociations()` liefert bewusst `[]`, solange die Instanz nicht `IS_ACTIVE` ist —
   dann entsteht ein Profil ohne Assoziationen statt falscher Defaults
   (`DEFAULT_EFFECT_ASSOCIATIONS` ist nur noch Referenz und ungenutzt).
-  Der Button „Update Effects" (`btnUpdateEffectProfile`) aktualisiert die Assoziationen nachträglich.
+  Der Button „Update Effects" (`btnUpdateEffectProfile`) zieht die Assoziationen nachträglich nach:
+  er setzt die gemeldeten Effekte, entfernt überzählige (leerer Name löscht eine Assoziation) und
+  passt den Wertebereich des Profils an. **Der Bereich folgt der Zahl der gemeldeten Effekte** —
+  früher stand dort fest 1..8 aus den acht Default-Effekten, was zu jedem realen Gerät zu klein war.
 
 ### Übersetzungen
 
@@ -151,6 +179,8 @@ oder `$this->Translate(...)`-String braucht dort einen Eintrag — die Schlüsse
   angehängten `neu:`/`korrigiert:`-Zeilen).
 - `compatibility.version` steht auf 7.0 — nur anheben, wenn tatsächlich eine neuere Symcon-Version
   benötigt wird.
+- Im Module Store läuft die Bibliothek unter der Bundle-ID **`fonzo.ipsymconnanoleaf`** (historisch,
+  nicht `de.bumaas.*` wie die neueren Bibliotheken) — wichtig für jeden Aufruf der Store-API.
 - Anwenderdoku liegt zweisprachig in `docs/de/README.md` und `docs/en/README.md`; Änderungen an
   Properties/Funktionen dort in **beiden** Dateien nachziehen.
 
