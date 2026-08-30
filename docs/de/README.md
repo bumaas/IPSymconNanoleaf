@@ -48,6 +48,20 @@ Folgen Sie diesen Schritten, um Ihr Nanoleaf-Gerät einzurichten:
 3. Wenn der Token erfolgreich abgerufen wurde, erscheint er in der Konfigurationsmaske der Instanz.
 4. Sobald ein Token verfügbar ist, haben Sie auch Zugriff auf Variablen zum Schalten des Geräts.
 
+#### Geräte der Matter over WiFi Generation (z. B. Smart Multicolor Ceiling Light)
+
+Diese Geräte haben keine Taste. Das Zeitfenster für den Token wird stattdessen in der Nanoleaf App
+geöffnet: Geräteeinstellungen -> _**Connect to API**_. Danach bleiben 30 Sekunden Zeit, um in der
+Instanz _**Get Token**_ zu drücken.
+
+Zwei Besonderheiten dieser Geräteklasse:
+
+- Sie antworten nicht auf SSDP und werden deshalb von der Discovery nicht gefunden. Die Instanz
+  _Nanoleaf_ wird von Hand angelegt, IP-Adresse und Port werden eingetragen.
+- Sie kennen die Endpunkte für Layout, Identify und Ausrichtung nicht; die Funktionen
+  `Nanoleaf_Layout`, `Nanoleaf_Identify`, `Nanoleaf_GetGlobalOrientation` und
+  `Nanoleaf_SetGlobalOrientation` liefern dort kein Ergebnis.
+
 ## 4. Funktionsreferenz
 
 ### Nanoleaf:

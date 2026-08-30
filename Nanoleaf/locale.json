@@ -12,6 +12,7 @@
 			"Update Interval": "Aktualisierungsintervall",
 			"Seconds": "Sekunden",
 			"1. Hold the on-off button down for 5-7 seconds until the LED starts flashing in a pattern": "1. Den An/Aus Knopf des Nanoleaf für 5 - 7 Sekunden gedrückt halten bis die LED mit dem Blinken beginnt",
+			"Devices without a button (e.g. the Ceiling Light): open the device settings in the Nanoleaf app and tap \"Connect to API\"": "Geräte ohne Taste (z. B. das Ceiling Light): in der Nanoleaf App die Geräteeinstellungen öffnen und „Connect to API“ antippen",
 			"2. Press the button below Get Token": "2. Den Knopf drücken, um einen Token vom Gerät zu holen",
 			"Get Token": "Token abholen",
 			"Could not get token": "Konnte den Token nicht abholen",

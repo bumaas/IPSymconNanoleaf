@@ -49,6 +49,20 @@ Follow these steps to set up your Nanoleaf device:
 3. If the token is successfully retrieved, it will appear in the configuration form of the instance.
 4. As soon as a token is available, you will also have access to variables for switching the device.
 
+#### Devices of the Matter over WiFi generation (e.g. Smart Multicolor Ceiling Light)
+
+These devices do not have a button. The pairing window is opened in the Nanoleaf app instead:
+device settings -> _**Connect to API**_. After that there are 30 seconds left to push
+_**Get Token**_ in the instance.
+
+Two particularities of this device class:
+
+- They do not answer to SSDP and are therefore not found by the discovery. The _Nanoleaf_ instance
+  is created manually, IP address and port are entered by hand.
+- They do not know the endpoints for layout, identify and orientation; the functions
+  `Nanoleaf_Layout`, `Nanoleaf_Identify`, `Nanoleaf_GetGlobalOrientation` and
+  `Nanoleaf_SetGlobalOrientation` return no result there.
+
 ## 4. Function reference
 
 ### Nanoleaf:  

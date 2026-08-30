@@ -103,8 +103,9 @@ class Nanoleaf extends IPSModule
         ); // "max" : 6500, "min" : 1200
         $this->EnableAction(self::VAR_IDENT_COLORTEMPERATURE);
 
-        if (count($this->getEffectAssociations())){
-            $this->RegisterProfileIntegerAss('Nanoleaf.Effect' . $this->InstanceID, 'Light', '', '', 1, 8, 0, 0, $this->getEffectAssociations());
+        $effectAssociations = $this->getEffectAssociations();
+        if (count($effectAssociations)) {
+            $this->RegisterProfileIntegerAss('Nanoleaf.Effect' . $this->InstanceID, 'Light', '', '', 1, 8, 0, 0, $effectAssociations);
         } else {
             $this->RegisterProfileInteger('Nanoleaf.Effect' . $this->InstanceID, 'Light', '', '', 1, 8, 0, 0);
 
@@ -188,10 +189,14 @@ class Nanoleaf extends IPSModule
         $effectlist = $this->ListEffect();
         $this->SendDebug(__FUNCTION__, sprintf('effectList: %s', $effectlist), 0);
 
-        if ($effectlist) {
-            $list = json_decode($effectlist, true, 512, JSON_THROW_ON_ERROR);
-        } else {
+        $list = $this->decodeResponse('List', $effectlist);
+        if (!is_array($list)) {
             $list = [];
+        }
+
+        if ($list === []) {
+            $list = $this->listEffectsViaCommandApi();
+            $this->SendDebug(__FUNCTION__, sprintf('effectList (command API): %s', json_encode($list, JSON_THROW_ON_ERROR)), 0);
         }
 
         return $this->getEffectAssociationsFromList($list);
@@ -216,23 +221,52 @@ class Nanoleaf extends IPSModule
         if ($info === false) {
             return false;
         }
-        $data            = json_decode($info, false, 512, JSON_THROW_ON_ERROR);
-        $serialNo        = $data->serialNo;
-        $firmwareVersion = $data->firmwareVersion;
-        $model           = $data->model;
-        $state           = $data->state->on->value;
-        $brightness      = $data->state->brightness->value;
-        $hue             = $data->state->hue->value;
-        $sat             = $data->state->sat->value;
-        $ct              = $data->state->ct->value;
-        $colormode       = $data->state->colorMode;
+        $data = $this->decodeResponse('GetAllInfo', $info);
+        if (!($data instanceof stdClass)) {
+            return false;
+        }
 
-        $this->SetValue(self::VAR_IDENT_STATE, $state);
-        $this->SetValue(self::VAR_IDENT_BRIGHTNESS, $brightness);
-        $this->SetValue(self::VAR_IDENT_HUE, $hue);
-        $this->SetValue(self::VAR_IDENT_SATURATION, $sat);
-        $this->SetValueColor();
-        $this->SetValue(self::VAR_IDENT_COLORTEMPERATURE, $ct);
+        $serialNo        = $data->serialNo ?? '';
+        $firmwareVersion = $data->firmwareVersion ?? '';
+        $model           = $data->model ?? '';
+
+        //Geräte der "Matter over WiFi" Generation (z. B. das Ceiling Light NL77K1) liefern in der
+        //Gesamtabfrage nur ihre Stammdaten. Der Zustand ist dort nur über die Einzelendpunkte zu lesen.
+        if (isset($data->state)) {
+            $state      = $data->state->on->value ?? null;
+            $brightness = $data->state->brightness->value ?? null;
+            $hue        = $data->state->hue->value ?? null;
+            $sat        = $data->state->sat->value ?? null;
+            $ct         = $data->state->ct->value ?? null;
+            $colormode  = $data->state->colorMode ?? null;
+        } else {
+            $this->SendDebug(__FUNCTION__, 'no state object in the response, reading the single endpoints', 0);
+            $state      = $this->readValueFromEndpoint('GetState');
+            $brightness = $this->readValueFromEndpoint('GetBrightness');
+            $hue        = $this->readValueFromEndpoint('GetHue');
+            $sat        = $this->readValueFromEndpoint('GetSaturation');
+            $ct         = $this->readValueFromEndpoint('GetColortemperature');
+            $colormode  = $this->readColorMode();
+        }
+
+        if ($state !== null) {
+            $this->SetValue(self::VAR_IDENT_STATE, (bool)$state);
+        }
+        if ($brightness !== null) {
+            $this->SetValue(self::VAR_IDENT_BRIGHTNESS, (int)$brightness);
+        }
+        if ($hue !== null) {
+            $this->SetValue(self::VAR_IDENT_HUE, (int)$hue);
+        }
+        if ($sat !== null) {
+            $this->SetValue(self::VAR_IDENT_SATURATION, (int)$sat);
+        }
+        if ($state !== null || $brightness !== null || $hue !== null || $sat !== null || $ct !== null) {
+            $this->SetValueColor();
+        }
+        if ($ct !== null) {
+            $this->SetValue(self::VAR_IDENT_COLORTEMPERATURE, (int)$ct);
+        }
 
         return [
             'serialnumber' => $serialNo,
@@ -246,6 +280,67 @@ class Nanoleaf extends IPSModule
             'colormode'    => $colormode
         ];
 
+    }
+
+    /**
+     * decodes a device response and reports a broken or missing answer instead of throwing
+     */
+    private function decodeResponse(string $command, bool|string $response): mixed
+    {
+        if ($response === false || $response === '') {
+            $this->SendDebug(__FUNCTION__, sprintf('%s: no response', $command), 0);
+
+            return null;
+        }
+
+        try {
+            return json_decode($response, false, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException $exception) {
+            $this->SendDebug(__FUNCTION__, sprintf('%s: invalid response (%s): %s', $command, $exception->getMessage(), $response), 0);
+
+            return null;
+        }
+    }
+
+    /**
+     * reads a single value endpoint (e.g. 'state/on'), which answers with {"value": ...}
+     */
+    private function readValueFromEndpoint(string $command): mixed
+    {
+        $data = $this->decodeResponse($command, $this->SendCommand(['command' => $command]));
+        if ($data instanceof stdClass) {
+            return $data->value ?? null;
+        }
+
+        return null;
+    }
+
+    private function readColorMode(): ?string
+    {
+        $colormode = $this->decodeResponse('ColorMode', $this->SendCommand(['command' => 'ColorMode']));
+
+        return is_string($colormode) ? $colormode : null;
+    }
+
+    /**
+     * the 'Matter over WiFi' devices do not know 'effects/effectsList',
+     * there the effect list is only available through the command API
+     */
+    private function listEffectsViaCommandApi(): array
+    {
+        $data = $this->decodeResponse('ListRequestAll', $this->SendCommand(['command' => 'ListRequestAll']));
+        if (!($data instanceof stdClass) || !isset($data->animations) || !is_array($data->animations)) {
+            return [];
+        }
+
+        $effects = [];
+        foreach ($data->animations as $animation) {
+            if (isset($animation->animName)) {
+                $effects[] = $animation->animName;
+            }
+        }
+
+        return $effects;
     }
 
     private function getToken(): void
@@ -372,6 +467,10 @@ class Nanoleaf extends IPSModule
         } elseif ($command === 'List') {
             $url         .= 'effects/effectsList';
             $requesttype = 'GET';
+        } elseif ($command === 'ListRequestAll') {
+            $url         .= 'effects';
+            $postfields  = '{"write" : {"command":"requestAll"}}';
+            $requesttype = 'PUT';
         } elseif ($command === 'Random') {
             $url         .= 'effects';
             $result      = json_decode(Sys_GetURLContent($url . 'effects/effectsList'), true, 512, JSON_THROW_ON_ERROR);
@@ -404,6 +503,8 @@ class Nanoleaf extends IPSModule
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_CUSTOMREQUEST  => $requesttype,
             CURLOPT_HTTPHEADER     => ['Content-type: application/json'],
+            CURLOPT_CONNECTTIMEOUT => 3,
+            CURLOPT_TIMEOUT        => 8,
         ]);
         if ($postfields !== '') {
             curl_setopt($ch, CURLOPT_POSTFIELDS, $postfields);
@@ -417,10 +518,11 @@ class Nanoleaf extends IPSModule
 
     public function GetState()
     {
-        $payload    = ['command' => 'GetState'];
-        $state_json = $this->SendCommand($payload);
-        $state      = json_decode($state_json, true, 512, JSON_THROW_ON_ERROR)['value'];
-        $this->SetValue(self::VAR_IDENT_STATE, $state);
+        $state = $this->readValueFromEndpoint('GetState');
+        if ($state === null) {
+            return false;
+        }
+        $this->SetValue(self::VAR_IDENT_STATE, (bool)$state);
 
         return $state;
     }
@@ -599,10 +701,11 @@ class Nanoleaf extends IPSModule
 
     public function GetColortemperature()
     {
-        $payload = ['command' => 'GetColortemperature'];
-        $ct_json = $this->SendCommand($payload);
-        $ct      = json_decode($ct_json, true, 512, JSON_THROW_ON_ERROR)['value'];
-        $this->SetValue(self::VAR_IDENT_COLORTEMPERATURE, $ct);
+        $ct = $this->readValueFromEndpoint('GetColortemperature');
+        if ($ct === null) {
+            return false;
+        }
+        $this->SetValue(self::VAR_IDENT_COLORTEMPERATURE, (int)$ct);
 
         return $ct;
     }
@@ -695,9 +798,7 @@ class Nanoleaf extends IPSModule
 
     public function GetGlobalOrientation()
     {
-        $payload                 = ['command' => 'GetGlobalOrientation'];
-        $global_orientation_json = $this->SendCommand($payload);
-        return json_decode($global_orientation_json, true, 512, JSON_THROW_ON_ERROR)['value'];
+        return $this->readValueFromEndpoint('GetGlobalOrientation');
     }
 
     public function SetGlobalOrientation(int $orientation)
@@ -953,6 +1054,11 @@ class Nanoleaf extends IPSModule
             [
                 'type'    => 'Label',
                 'caption' => '1. Hold the on-off button down for 5-7 seconds until the LED starts flashing in a pattern',
+                'visible' => $tokenNotSet
+            ],
+            [
+                'type'    => 'Label',
+                'caption' => 'Devices without a button (e.g. the Ceiling Light): open the device settings in the Nanoleaf app and tap "Connect to API"',
                 'visible' => $tokenNotSet
             ],
             [
