@@ -1,7 +1,5 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Überblick
 
 Symcon-Modulbibliothek zum Steuern von Nanoleaf-Leuchten über die lokale Nanoleaf-OpenAPI
@@ -25,8 +23,8 @@ laufen nur `php -l` auf beiden `module.php` und eine JSON-Prüfung von `library.
 `module.json` und den `locale.json`.
 
 Getestet wird real gegen ein Gerät bzw. über die Mock-Datei (siehe unten); Debug-Ausgaben landen
-per `SendDebug` im Symcon-Debug-Fenster der Instanz. Eine geänderte Bibliothek liest
-`MC_ReloadModule` ohne Kernel-Neustart ein.
+per `SendDebug` im Symcon-Debug-Fenster der Instanz. Neu einlesen: `MC_ReloadModule` mit
+Ordnername `IPSymconNanoleaf` (Details global).
 
 ### Mock-Modus — wichtigste Stolperfalle
 
@@ -55,7 +53,7 @@ preg_match('/
 eval('class NanoleafTest { private function SendDebug($a,$b,$c): void {} … ' . $m[0] . ' }');
 ```
 
-Als Prüfdaten eignen sich die Antwortbeispiele aus Nanoleafs Doku (siehe Quellen oben) und die
+Als Prüfdaten eignen sich die Antwortbeispiele aus Nanoleafs Doku (siehe Quellen unten) und die
 Rohantworten aus Debug-Ausgaben von Anwendern — damit fiel auf, dass die beiden Gerätefamilien
 die Werte unterschiedlich verpacken.
 
@@ -174,11 +172,8 @@ oder `$this->Translate(...)`-String braucht dort einen Eintrag — die Schlüsse
 
 ## Konventionen
 
-- Bei jeder inhaltlichen Änderung `library.json`: `build` +1, `date` auf aktuellen Unix-Timestamp;
-  Commit-Subject `<version> build <NN>: <kurze Beschreibung>` (Historie folgt dem Muster, teils mit
-  angehängten `neu:`/`korrigiert:`-Zeilen).
-- `compatibility.version` steht auf 7.0 — nur anheben, wenn tatsächlich eine neuere Symcon-Version
-  benötigt wird.
+- Build-/Versionspflege und Commit-Subject: Konvention siehe globale CLAUDE.md;
+  `compatibility.version` 7.0.
 - Im Module Store läuft die Bibliothek unter der Bundle-ID **`fonzo.ipsymconnanoleaf`** (historisch,
   nicht `de.bumaas.*` wie die neueren Bibliotheken) — wichtig für jeden Aufruf der Store-API.
 - Anwenderdoku liegt zweisprachig in `docs/de/README.md` und `docs/en/README.md`; Änderungen an
@@ -188,7 +183,7 @@ oder `$this->Translate(...)`-String braucht dort einen Eintrag — die Schlüsse
 
 - Beide Klassen erben von `IPSModule` (nicht `IPSModuleStrict`), Darstellungen laufen über
   Legacy-Profile (`IPS_CreateVariableProfile`) statt Presentations.
-- Kein `.github/workflows/check.yml`, kein `tests/check_locale.php`; `.idea/` ist mit eingecheckt.
+- Kein `.github/workflows/check.yml`, kein `tests/check_locale.php`.
 - `docs/*/README.md` nennt `Nanoleaf_GetBrightness/GetHue/GetSaturation` — diese öffentlichen
   Funktionen existieren im Code nicht (mehr).
 - `Nanoleaf/module.php` enthält im Formular (`FormElements()`) ein ~30 kB langes Base64-Logo in
