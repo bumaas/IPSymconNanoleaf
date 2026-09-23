@@ -26,7 +26,7 @@ The module can control Nanoleaf lights from IP Symcon.
 
 ## 2. Requirements
 
-- IP-Symcon 7.0
+- Symcon 7.0
 - Nanoleaf
 
 ## 3. Installation
@@ -35,7 +35,7 @@ The module can control Nanoleaf lights from IP Symcon.
 
 The module is installed via the module store.
 
-### b.  Setup in IP-Symcon
+### b.  Setup in Symcon
 
 In IP Symcon, under the category _Discovery Instances_, select _Instance_ (_right click -> add object -> instance_) and add __*Nanoleaf Discovery*__.
 Then open the discovery instance, select a category under which the device should be created and create the device.

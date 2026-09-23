@@ -11,7 +11,7 @@
 
 ## 1. Funktionsumfang
 
-Mit dem Modul lässt sich ein Nanoleaf von IP-Symcon aus schalten.
+Mit dem Modul lässt sich ein Nanoleaf von Symcon aus schalten.
 
 ### Funktionen:  
 
@@ -25,7 +25,7 @@ Mit dem Modul lässt sich ein Nanoleaf von IP-Symcon aus schalten.
 	  
 ## 2. Voraussetzungen
 
- - IP-Symcon 7.0
+ - Symcon 7.0
  - Nanoleaf
 
 ## 3. Installation
@@ -34,9 +34,9 @@ Mit dem Modul lässt sich ein Nanoleaf von IP-Symcon aus schalten.
 
 Das Modul wird über den Modul Store installiert.
 
-### b. Einrichtung in IP-Symcon
+### b. Einrichtung in Symcon
 	
-In IP-Symcon unterhalb der Kategorie _Discovery Instances_ nun _Instanz hinzufügen_ (_Rechtsklick -> Objekt hinzufügen -> Instanz_) wählen und __*Nanoleaf Discovery*__ hinzufügen.
+In Symcon unterhalb der Kategorie _Discovery Instances_ nun _Instanz hinzufügen_ (_Rechtsklick -> Objekt hinzufügen -> Instanz_) wählen und __*Nanoleaf Discovery*__ hinzufügen.
 Anschließend die Discovery Instanz öffnen, eine Kategorie auswählen, unter der das Gerät angelegt werden soll und das Gerät erzeugen.
 
 ### c. Pairen mit Nanoleaf
