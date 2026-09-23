@@ -1,2 +1,4 @@
-/tests/
+/tests/*
+!/tests/check-*.php
+!/tests/readme-bekannt.json
 /CLAUDE.local.md
