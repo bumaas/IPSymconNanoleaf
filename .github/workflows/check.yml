@@ -18,5 +18,9 @@ jobs:
         run: |
           find . -name '*.json' -not -path './.git/*' -print0 |
             xargs -0 -n1 php -r 'json_decode(file_get_contents($argv[1]), false, 512, JSON_THROW_ON_ERROR);' --
+      - name: MCP-Tauglichkeit (statische Regeln, bumaas/symcon-mcp-check)
+        uses: bumaas/symcon-mcp-check@v1
+        with:
+          language: de
       - name: Laufzeit-Checks
         run: for t in tests/check-*.php; do echo "== $t"; php "$t" || exit 1; done
